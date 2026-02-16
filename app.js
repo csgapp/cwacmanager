@@ -4,6 +4,36 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
+    // ========== LOCAL STORAGE FUNCTIONS ==========
+    function saveDataToLocal() {
+        try {
+            localStorage.setItem('cwac_paidData', JSON.stringify(paidData));
+            localStorage.setItem('cwac_unpaidData', JSON.stringify(unpaidData));
+            localStorage.setItem('cwac_statusData', JSON.stringify(statusData));
+            console.log('Data saved to local storage');
+        } catch (e) {
+            console.log('Could not save to local storage', e);
+        }
+    }
+    
+    function loadDataFromLocal() {
+        try {
+            const savedPaid = localStorage.getItem('cwac_paidData');
+            const savedUnpaid = localStorage.getItem('cwac_unpaidData');
+            const savedStatus = localStorage.getItem('cwac_statusData');
+            
+            if (savedPaid) paidData = JSON.parse(savedPaid);
+            if (savedUnpaid) unpaidData = JSON.parse(savedUnpaid);
+            if (savedStatus) statusData = JSON.parse(savedStatus);
+            
+            console.log('Data loaded from local storage');
+            return true;
+        } catch (e) {
+            console.log('Could not load from local storage', e);
+            return false;
+        }
+    }
+    
     // ========== PERFORMANCE OPTIMIZATIONS ==========
     
     // Debounce function for performance
@@ -180,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log(`User role: ${userRole}`);
     
-    // Role indicator
+    // Role indicator - FIXED: White text
     const roleIndicator = document.createElement('div');
     roleIndicator.style.cssText = `
         position: fixed;
@@ -205,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (userRole === 'viewer') {
             // Hide all admin-only elements (import/export)
             const adminSelectors = [
-                '[data-tab="importExport"]',  // Hide Import/Export tab completely
+                '[data-tab="importExport"]',
                 '#importBtn',
                 '#exportPaidBtn',
                 '#exportUnpaidBtn',
@@ -224,10 +254,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Keep all editing capabilities for viewers (call numbers AND status)
-            // Do NOT disable anything in Edit or Status tabs
+            // Keep Edit tab visible with editing capabilities
+            const editTab = document.querySelector('[data-tab="edit"]');
+            if (editTab) {
+                editTab.style.display = 'block';
+            }
             
-            // Add helpful notices but don't disable functionality
+            // Add helpful notices
             const editSection = document.getElementById('edit');
             if (editSection && !editSection.querySelector('.viewer-notice')) {
                 const notice = document.createElement('div');
@@ -272,14 +305,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== KEYBOARD SHORTCUTS ==========
     document.addEventListener('keydown', (e) => {
-        // Ctrl+H to return home
         if (e.ctrlKey && e.key === 'h') {
             e.preventDefault();
             goToLandingPage();
             showToast('Returned to home', 'info');
         }
         
-        // Ctrl+1 through Ctrl+5 for tab switching
         if (e.ctrlKey && e.key >= '1' && e.key <= '5') {
             e.preventDefault();
             const index = parseInt(e.key) - 1;
@@ -296,6 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let statusData = {};
     let failedRecords = [];
     let virtualScrollers = {};
+    
+    // Load any saved data
+    loadDataFromLocal();
 
     // ========== GET STARTED BUTTON ==========
     const getStartedBtn = document.getElementById('getStarted');
@@ -312,6 +346,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     applyRoleBasedUI();
                     showDataStats();
                     addSearchToLists();
+                    if (Object.keys(paidData).length > 0 || Object.keys(unpaidData).length > 0) {
+                        populateCwacLists();
+                    }
                 }, 100);
             }
         });
@@ -325,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function() {
             memberManagement.style.display = 'none';
             header.style.display = 'block';
             
-            // Reset any open member lists
             document.getElementById('paidMembers').innerHTML = '';
             document.getElementById('unpaidMembers').innerHTML = '';
             document.getElementById('statusMembers').innerHTML = '';
@@ -489,7 +525,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Display filtered results
         const list = document.getElementById(`${type}CwacList`);
         if (list) {
             list.innerHTML = '';
@@ -908,7 +943,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div><strong>CWAC:</strong> ${member.cwacArea}</div>
                     <div><strong>Current Phone:</strong> <span class="phone-badge" id="currentPhone_${member.uniqueId}">📞 ${member.callNumber}</span></div>
                 </div>
-                <!-- ALL users (admin AND viewers) can edit phone numbers -->
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <label style="font-weight: bold;">New Phone:</label>
                     <input type="text" id="edit_${member.uniqueId}" value="${member.callNumber}" 
@@ -926,7 +960,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.updateMemberPhone = function(area, memberIndex, uniqueId) {
-        // ALL users (admin AND viewers) can update phone numbers
         const input = document.getElementById(`edit_${uniqueId}`);
         const statusDiv = document.getElementById(`status_${uniqueId}`);
         const currentPhoneSpan = document.getElementById(`currentPhone_${uniqueId}`);
@@ -954,6 +987,9 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPhoneSpan.innerHTML = `📞 ${newNumber}`;
         statusDiv.innerHTML = '<span style="color: #4caf50;">✅ Phone number updated!</span>';
         input.value = newNumber;
+        
+        // Save to local storage
+        saveDataToLocal();
         
         showToast(`Phone updated for ${unpaidData[area][memberIndex].name}`, 'success');
         
@@ -1042,7 +1078,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${totalStatus === 0 ? '<p style="color: #f44336; margin: 10px 0 0;">⚠️ Upload data first to enable export</p>' : ''}
             </div>
             ` : `
-            <!-- Viewers see a simplified header with editing notice -->
             <div class="alert alert-success" style="margin-bottom: 20px; background: #d4edda; color: #155724;">
                 <strong>✅ Update Member Status</strong> - Click Alive or Deceased buttons below to update member status.
             </div>
@@ -1163,7 +1198,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div><strong>CWAC:</strong> ${member.cwacArea}</div>
                     <div><strong>Phone:</strong> <span class="phone-badge">📞 ${member.callNumber}</span></div>
                 </div>
-                <!-- Status update buttons visible to ALL users (admin AND viewers) -->
                 <div class="status-actions">
                     <button onclick="updateMemberStatus('${member.cwacArea}', ${member.originalIndex}, 'ALIVE')" 
                             class="btn-alive">❤️ Alive</button>
@@ -1177,7 +1211,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.updateMemberStatus = function(area, memberIndex, newStatus) {
-        // ALL users (admin AND viewers) can update status
         if (!statusData[area] || !statusData[area][memberIndex]) {
             showToast('Member not found!', 'error');
             return;
@@ -1185,6 +1218,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const oldStatus = statusData[area][memberIndex].status;
         statusData[area][memberIndex].status = newStatus;
+        
+        // Save to local storage
+        saveDataToLocal();
         
         const statusFilter = document.querySelector('input[name="statusFilter"]:checked').value;
         const areaFilter = document.getElementById('statusAreaFilter').value;
@@ -1262,6 +1298,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 Object.keys(statusData).forEach(cwac => {
                     statusData[cwac].sort((a, b) => a.name.localeCompare(b.name));
                 });
+                
+                // Save to local storage
+                saveDataToLocal();
                 
                 document.getElementById('statusImportMessage').innerHTML = 
                     `<div class="alert alert-success">✅ Imported ${importedCount} members (${skippedCount} skipped)</div>`;
@@ -1411,13 +1450,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Sort members
             Object.keys(paidData).forEach(cwac => {
                 paidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
             Object.keys(unpaidData).forEach(cwac => {
                 unpaidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
+            
+            // Save to local storage
+            saveDataToLocal();
             
             const totalUnpaid = Object.values(unpaidData).reduce((sum, arr) => sum + arr.length, 0);
             

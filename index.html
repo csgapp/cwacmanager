@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Cwac Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Cwac Manager - Member Management System</title>
+  <meta name="description" content="Manage CWAC members: track paid/unpaid status, update phone numbers, and mark members as alive/deceased. Built for field workers and administrators.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,7 +21,7 @@
       <button class="tabBtn" data-tab="paid">Paid Members by Cwac Area</button>
       <button class="tabBtn" data-tab="unpaid">Unpaid Members by Cwac Area</button>
       <button class="tabBtn" data-tab="edit">Edit Call Number</button>
-      <button class="tabBtn" data-tab="status">Status</button>  <!-- NEW STATUS TAB -->
+      <button class="tabBtn" data-tab="status">Status</button>
       <button class="tabBtn" data-tab="importExport">Import/Export</button>
     </nav>
 
@@ -44,10 +46,9 @@
       <input type="text" id="callNumber" maxlength="9">
     </section>
 
-    <!-- Status Tab (NEW) -->
+    <!-- Status Tab -->
     <section id="status" class="tabContent" style="display:none;">
       <h2>Member Status Management</h2>
-      <!-- Content will be populated by JavaScript -->
     </section>
 
     <!-- Import/Export -->
