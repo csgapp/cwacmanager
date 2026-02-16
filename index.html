@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cwac Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Landing Section -->
+  <header>
+    <h1>Cwac Manager</h1>
+    <p>The complete solution for managing your clients</p>
+    <button id="getStarted">Get Started</button>
+  </header>
+
+  <!-- Member Management Section -->
+  <main id="memberManagement" style="display:none;">
+    <nav>
+      <button class="tabBtn" data-tab="paid">Paid Members by Cwac Area</button>
+      <button class="tabBtn" data-tab="unpaid">Unpaid Members by Cwac Area</button>
+      <button class="tabBtn" data-tab="edit">Edit Call Number</button>
+      <button class="tabBtn" data-tab="status">Status</button>  <!-- NEW STATUS TAB -->
+      <button class="tabBtn" data-tab="importExport">Import/Export</button>
+    </nav>
+
+    <!-- Paid Members -->
+    <section id="paid" class="tabContent" style="display:none;">
+      <h2>Paid Members by Cwac Area</h2>
+      <ul id="paidCwacList"></ul>
+      <div id="paidMembers"></div>
+    </section>
+
+    <!-- Unpaid Members -->
+    <section id="unpaid" class="tabContent" style="display:none;">
+      <h2>Unpaid Members by Cwac Area</h2>
+      <ul id="unpaidCwacList"></ul>
+      <div id="unpaidMembers"></div>
+    </section>
+
+    <!-- Edit Call Number -->
+    <section id="edit" class="tabContent" style="display:none;">
+      <h2>Edit Call Number</h2>
+      <label for="callNumber">Enter Call Number:</label>
+      <input type="text" id="callNumber" maxlength="9">
+    </section>
+
+    <!-- Status Tab (NEW) -->
+    <section id="status" class="tabContent" style="display:none;">
+      <h2>Member Status Management</h2>
+      <!-- Content will be populated by JavaScript -->
+    </section>
+
+    <!-- Import/Export -->
+    <section id="importExport" class="tabContent" style="display:none;">
+      <h2>Import / Export Members</h2>
+      <label for="csvFile">Upload CSV File:</label>
+      <input type="file" id="csvFile" accept=".csv">
+      <button id="importBtn">Import CSV</button>
+      <p id="importMessage"></p>
+
+      <div style="margin-top:20px;">
+        <button id="exportPaidBtn">Export Paid Members</button>
+        <button id="exportUnpaidBtn">Export Unpaid Members</button>
+        <p id="exportMessage"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
