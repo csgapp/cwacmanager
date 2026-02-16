@@ -1,10 +1,77 @@
-// app.js - Enhanced with Performance Optimizations and Modern UI/UX
+// app.js - Enhanced with Firebase Cloud Syncing
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
-    // ========== LOCAL STORAGE FUNCTIONS ==========
+    // ========== FIREBASE CONFIGURATION ==========
+    // Replace with your Firebase config from Step 1
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    
+    // ========== CLOUD SYNC FUNCTIONS ==========
+    async function saveDataToCloud() {
+        try {
+            showToast('Syncing data to cloud...', 'info');
+            
+            const dataToSave = {
+                paidData: paidData,
+                unpaidData: unpaidData,
+                statusData: statusData,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            await db.collection('cwacData').doc('mainData').set(dataToSave);
+            console.log('Data synced to cloud');
+            showToast('Data synced successfully!', 'success');
+        } catch (e) {
+            console.error('Cloud sync error:', e);
+            showToast('Sync failed - check internet', 'error');
+        }
+    }
+    
+    async function loadDataFromCloud() {
+        try {
+            showToast('Loading data from cloud...', 'info');
+            
+            const doc = await db.collection('cwacData').doc('mainData').get();
+            
+            if (doc.exists) {
+                const data = doc.data();
+                paidData = data.paidData || {};
+                unpaidData = data.unpaidData || {};
+                statusData = data.statusData || {};
+                
+                console.log('Data loaded from cloud');
+                showToast('Data loaded successfully!', 'success');
+                
+                // Update UI
+                populateCwacLists();
+                showDataStats();
+                return true;
+            } else {
+                console.log('No data in cloud yet');
+                showToast('No saved data found', 'info');
+                return false;
+            }
+        } catch (e) {
+            console.error('Cloud load error:', e);
+            showToast('Failed to load from cloud', 'error');
+            return false;
+        }
+    }
+    
+    // ========== LOCAL STORAGE FALLBACK ==========
     function saveDataToLocal() {
         try {
             localStorage.setItem('cwac_paidData', JSON.stringify(paidData));
@@ -31,6 +98,63 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             console.log('Could not load from local storage', e);
             return false;
+        }
+    }
+    
+    // ========== SYNC BUTTON ==========
+    function addSyncButton() {
+        const syncDiv = document.createElement('div');
+        syncDiv.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10001;
+            display: flex;
+            gap: 10px;
+        `;
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.innerHTML = '☁️ Save to Cloud';
+        saveBtn.style.cssText = `
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        saveBtn.onclick = saveDataToCloud;
+        
+        const loadBtn = document.createElement('button');
+        loadBtn.innerHTML = '☁️ Load from Cloud';
+        loadBtn.style.cssText = `
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        loadBtn.onclick = loadDataFromCloud;
+        
+        syncDiv.appendChild(saveBtn);
+        syncDiv.appendChild(loadBtn);
+        document.body.appendChild(syncDiv);
+    }
+    
+    // ========== AUTO-SYNC ON DATA CHANGES ==========
+    function autoSync() {
+        if (navigator.onLine) {
+            saveDataToCloud();
+        } else {
+            saveDataToLocal();
+            showToast('Offline - saved locally', 'warning');
         }
     }
     
@@ -210,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log(`User role: ${userRole}`);
     
-    // Role indicator - FIXED: White text
+    // Role indicator
     const roleIndicator = document.createElement('div');
     roleIndicator.style.cssText = `
         position: fixed;
@@ -233,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== UI CONTROL BASED ON ROLE ==========
     function applyRoleBasedUI() {
         if (userRole === 'viewer') {
-            // Hide all admin-only elements (import/export)
             const adminSelectors = [
                 '[data-tab="importExport"]',
                 '#importBtn',
@@ -254,13 +377,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Keep Edit tab visible with editing capabilities
             const editTab = document.querySelector('[data-tab="edit"]');
             if (editTab) {
                 editTab.style.display = 'block';
             }
             
-            // Add helpful notices
             const editSection = document.getElementById('edit');
             if (editSection && !editSection.querySelector('.viewer-notice')) {
                 const notice = document.createElement('div');
@@ -268,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 notice.style.marginBottom = '15px';
                 notice.style.background = '#fff3cd';
                 notice.style.color = '#856404';
-                notice.innerHTML = '👁️ You can edit phone numbers below. Changes are saved locally.';
+                notice.innerHTML = '👁️ You can edit phone numbers below. Changes are saved to cloud.';
                 editSection.insertBefore(notice, editSection.firstChild);
             }
             
@@ -283,7 +404,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusSection.insertBefore(notice, statusSection.firstChild);
             }
             
-            // Add viewer notice to view-only tabs
             const viewOnlyTabs = ['paid', 'unpaid'];
             viewOnlyTabs.forEach(tabId => {
                 const tab = document.getElementById(tabId);
@@ -296,7 +416,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
         } else {
-            // Admin mode - ensure all elements are visible
             document.querySelectorAll('[data-tab="importExport"]').forEach(el => {
                 el.style.display = 'block';
             });
@@ -328,8 +447,17 @@ document.addEventListener('DOMContentLoaded', function() {
     let failedRecords = [];
     let virtualScrollers = {};
     
-    // Load any saved data
-    loadDataFromLocal();
+    // Try loading from cloud first, fallback to local
+    async function initializeData() {
+        const cloudLoaded = await loadDataFromCloud();
+        if (!cloudLoaded) {
+            loadDataFromLocal();
+        }
+        if (Object.keys(paidData).length > 0 || Object.keys(unpaidData).length > 0) {
+            populateCwacLists();
+            showDataStats();
+        }
+    }
 
     // ========== GET STARTED BUTTON ==========
     const getStartedBtn = document.getElementById('getStarted');
@@ -346,9 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     applyRoleBasedUI();
                     showDataStats();
                     addSearchToLists();
-                    if (Object.keys(paidData).length > 0 || Object.keys(unpaidData).length > 0) {
-                        populateCwacLists();
-                    }
+                    initializeData();
                 }, 100);
             }
         });
@@ -959,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    window.updateMemberPhone = function(area, memberIndex, uniqueId) {
+    window.updateMemberPhone = async function(area, memberIndex, uniqueId) {
         const input = document.getElementById(`edit_${uniqueId}`);
         const statusDiv = document.getElementById(`status_${uniqueId}`);
         const currentPhoneSpan = document.getElementById(`currentPhone_${uniqueId}`);
@@ -988,8 +1114,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.innerHTML = '<span style="color: #4caf50;">✅ Phone number updated!</span>';
         input.value = newNumber;
         
-        // Save to local storage
-        saveDataToLocal();
+        // Save to cloud
+        await saveDataToCloud();
         
         showToast(`Phone updated for ${unpaidData[area][memberIndex].name}`, 'success');
         
@@ -1210,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    window.updateMemberStatus = function(area, memberIndex, newStatus) {
+    window.updateMemberStatus = async function(area, memberIndex, newStatus) {
         if (!statusData[area] || !statusData[area][memberIndex]) {
             showToast('Member not found!', 'error');
             return;
@@ -1219,8 +1345,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const oldStatus = statusData[area][memberIndex].status;
         statusData[area][memberIndex].status = newStatus;
         
-        // Save to local storage
-        saveDataToLocal();
+        // Save to cloud
+        await saveDataToCloud();
         
         const statusFilter = document.querySelector('input[name="statusFilter"]:checked').value;
         const areaFilter = document.getElementById('statusAreaFilter').value;
@@ -1250,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const reader = new FileReader();
         
-        reader.onload = function (e) {
+        reader.onload = async function (e) {
             try {
                 const content = e.target.result;
                 const rows = content.split('\n').filter(row => row.trim() !== '');
@@ -1299,8 +1425,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     statusData[cwac].sort((a, b) => a.name.localeCompare(b.name));
                 });
                 
-                // Save to local storage
-                saveDataToLocal();
+                // Save to cloud
+                await saveDataToCloud();
                 
                 document.getElementById('statusImportMessage').innerHTML = 
                     `<div class="alert alert-success">✅ Imported ${importedCount} members (${skippedCount} skipped)</div>`;
@@ -1457,8 +1583,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 unpaidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
             
-            // Save to local storage
-            saveDataToLocal();
+            // Save to cloud
+            await saveDataToCloud();
             
             const totalUnpaid = Object.values(unpaidData).reduce((sum, arr) => sum + arr.length, 0);
             
@@ -1670,6 +1796,7 @@ document.addEventListener('DOMContentLoaded', function() {
     DebugPanel.init();
     applyRoleBasedUI();
     addCreditLine();
+    addSyncButton();
     
     console.log('App initialization complete');
 });
