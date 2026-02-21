@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== FIREBASE CONFIGURATION ==========
     // REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIG VALUES
     const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
+  apiKey: "AIzaSyBh_UArb8QhTrgOJh38pL8ZCrGrrcwKToc",
+  authDomain: "cwacmanager-cedd6.firebaseapp.com",
+  projectId: "cwacmanager-cedd6",
+  storageBucket: "cwacmanager-cedd6.firebasestorage.app",
+  messagingSenderId: "986970274761",
+  appId: "1:986970274761:web:006859e6487ae9ae36c618"
+};
     
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
