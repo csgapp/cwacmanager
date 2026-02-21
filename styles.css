@@ -779,6 +779,140 @@ button:disabled::before {
     transform: translateX(-5px);
 }
 
+/* ========== SYNC BUTTONS STYLES ========== */
+/* Sync buttons container - draggable on mobile */
+#syncDiv, 
+div[style*="bottom: 20px; left: 20px;"] {
+    position: fixed !important;
+    z-index: 10001;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    transition: box-shadow 0.3s ease;
+}
+
+/* Desktop styles */
+@media (min-width: 769px) {
+    #syncDiv, 
+    div[style*="bottom: 20px; left: 20px;"] {
+        bottom: 20px !important;
+        left: 20px !important;
+        top: auto !important;
+    }
+}
+
+/* Mobile styles - draggable */
+@media (max-width: 768px) {
+    #syncDiv, 
+    div[style*="bottom: 20px; left: 20px;"] {
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: none;
+        min-width: auto !important;
+        padding: 8px 14px !important;
+        top: auto !important;
+        left: 20px !important;
+        bottom: 20px !important;
+        right: auto !important;
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid rgba(255,255,255,0.2);
+    }
+    
+    #syncDiv:active, 
+    div[style*="bottom: 20px; left: 20px;"]:active {
+        cursor: grabbing;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    }
+    
+    /* Grab handle indicator */
+    #syncDiv::before,
+    div[style*="bottom: 20px; left: 20px;"]::before {
+        content: '⋮⋮';
+        color: rgba(255,255,255,0.6);
+        font-size: 18px;
+        margin-right: 8px;
+        letter-spacing: 2px;
+        font-weight: bold;
+    }
+}
+
+/* Buttons inside sync container */
+#syncDiv button,
+div[style*="bottom: 20px; left: 20px;"] button {
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+    border-radius: 40px !important;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    white-space: nowrap !important;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3) !important;
+    min-width: 80px !important;
+}
+
+#syncDiv button:hover,
+div[style*="bottom: 20px; left: 20px;"] button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.5) !important;
+}
+
+#syncDiv button:active,
+div[style*="bottom: 20px; left: 20px;"] button:active {
+    transform: translateY(0);
+}
+
+/* Sync status indicator */
+#syncStatus,
+span[id="syncStatus"] {
+    padding: 8px 16px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border-radius: 40px !important;
+    color: white !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    white-space: nowrap !important;
+}
+
+/* Extra small devices */
+@media (max-width: 375px) {
+    #syncDiv, 
+    div[style*="bottom: 20px; left: 20px;"] {
+        padding: 6px 12px !important;
+        gap: 6px !important;
+    }
+    
+    #syncDiv button,
+    div[style*="bottom: 20px; left: 20px;"] button {
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+        min-width: 70px !important;
+    }
+    
+    #syncStatus,
+    span[id="syncStatus"] {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+    
+    #syncDiv::before,
+    div[style*="bottom: 20px; left: 20px;"]::before {
+        font-size: 16px;
+        margin-right: 4px;
+    }
+}
+
 /* Mobile Responsive Enhancements */
 @media (max-width: 768px) {
     body {
@@ -946,7 +1080,8 @@ button:disabled::before {
 /* Print Styles */
 @media print {
     nav, button, .home-button, .viewer-notice, .status-actions, 
-    .filter-section, .import-section, .export-section, #getStarted {
+    .filter-section, .import-section, .export-section, #getStarted,
+    #syncDiv, div[style*="bottom: 20px; left: 20px;"] {
         display: none !important;
     }
     
@@ -1028,41 +1163,6 @@ button:disabled::before {
 
 /* ========== MOBILE EDIT CARD OPTIMIZATIONS ========== */
 @media (max-width: 768px) {
-    /* Sync buttons container - smaller and draggable */
-    #syncDiv, div[style*="bottom: 20px; left: 20px;"] {
-        min-width: auto !important;
-        padding: 8px !important;
-        gap: 6px !important;
-        background: rgba(0, 0, 0, 0.8);
-        backdrop-filter: blur(10px);
-        border-radius: 40px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        cursor: grab;
-        touch-action: none;
-        user-select: none;
-        z-index: 10001;
-        border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    #syncDiv:active, div[style*="bottom: 20px; left: 20px;"]:active {
-        cursor: grabbing;
-    }
-
-    /* Sync buttons text smaller */
-    #syncDiv button, div[style*="bottom: 20px; left: 20px;"] button {
-        padding: 8px 12px !important;
-        font-size: 11px !important;
-        min-width: auto !important;
-        white-space: nowrap;
-    }
-
-    /* Status indicator smaller */
-    #syncStatus, span[id="syncStatus"] {
-        padding: 8px 12px !important;
-        font-size: 10px !important;
-        white-space: nowrap;
-    }
-
     /* Add padding to bottom of edit tab to prevent button overlap */
     #edit {
         padding-bottom: 90px !important;
@@ -1193,16 +1293,6 @@ button:disabled::before {
 
 /* ========== EXTRA SMALL DEVICES (iPhone SE, etc.) ========== */
 @media (max-width: 375px) {
-    #syncDiv button, div[style*="bottom: 20px; left: 20px;"] button {
-        padding: 6px 10px !important;
-        font-size: 10px !important;
-    }
-
-    #syncStatus, span[id="syncStatus"] {
-        padding: 6px 10px !important;
-        font-size: 9px !important;
-    }
-
     #unpaidMembersList .member-card.unpaid input[type="text"] {
         font-size: 16px !important;
         padding: 12px 14px !important;
@@ -1215,67 +1305,3 @@ button:disabled::before {
         height: 55px !important;
     }
 }
-
-/* ========== DRAGGABLE SYNC BUTTONS JAVASCRIPT ========== */
-/* Add this to your app.js file to make sync buttons draggable */
-
-/*
-// Add this function to your app.js inside the DOMContentLoaded event
-
-function makeDraggable(element) {
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-    element.onmousedown = dragMouseDown;
-    element.ontouchstart = dragTouchStart;
-
-    function dragMouseDown(e) {
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-    }
-
-    function dragTouchStart(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        pos3 = touch.clientX;
-        pos4 = touch.clientY;
-        document.ontouchend = closeDragElement;
-        document.ontouchmove = touchDrag;
-    }
-
-    function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        element.style.top = (element.offsetTop - pos2) + "px";
-        element.style.left = (element.offsetLeft - pos1) + "px";
-    }
-
-    function touchDrag(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        pos1 = pos3 - touch.clientX;
-        pos2 = pos4 - touch.clientY;
-        pos3 = touch.clientX;
-        pos4 = touch.clientY;
-        element.style.top = (element.offsetTop - pos2) + "px";
-        element.style.left = (element.offsetLeft - pos1) + "px";
-    }
-
-    function closeDragElement() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-        document.ontouchend = null;
-        document.ontouchmove = null;
-    }
-}
-
-// Make sync buttons draggable
-const syncDiv = document.getElementById('syncDiv') || document.querySelector('div[style*="bottom: 20px; left: 20px;"]');
-if (syncDiv) {
-    makeDraggable(syncDiv);
-}
-*/

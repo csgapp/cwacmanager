@@ -1,4 +1,4 @@
-// app.js - Complete Enhanced Version with Firebase Cloud Syncing
+// app.js - Complete Enhanced Version with Firebase Cloud Syncing and Draggable Sync Buttons
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -29,6 +29,230 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Persistence not supported by browser');
         }
     });
+    
+    // ========== DRAGGABLE SYNC BUTTONS FUNCTIONALITY ==========
+    
+    // Make sync buttons draggable on mobile
+    function makeDraggable(element) {
+        if (!element) return;
+        
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        let isDragging = false;
+        
+        // Set initial position if not set
+        if (!element.style.top) {
+            element.style.top = '20px';
+            element.style.left = '20px';
+        }
+        
+        // Mouse events for desktop
+        element.addEventListener('mousedown', dragMouseDown);
+        
+        // Touch events for mobile
+        element.addEventListener('touchstart', dragTouchStart, { passive: false });
+        
+        // Prevent default drag behavior on the element
+        element.addEventListener('dragstart', (e) => e.preventDefault());
+
+        function dragMouseDown(e) {
+            e.preventDefault();
+            isDragging = true;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            
+            document.addEventListener('mousemove', elementDrag);
+            document.addEventListener('mouseup', closeDragElement);
+            
+            // Change cursor while dragging
+            element.style.cursor = 'grabbing';
+        }
+
+        function dragTouchStart(e) {
+            e.preventDefault();
+            isDragging = true;
+            const touch = e.touches[0];
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            
+            document.addEventListener('touchmove', touchDrag, { passive: false });
+            document.addEventListener('touchend', closeDragElement);
+            document.addEventListener('touchcancel', closeDragElement);
+        }
+
+        function elementDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            
+            // Keep element within viewport bounds
+            const newTop = element.offsetTop - pos2;
+            const newLeft = element.offsetLeft - pos1;
+            
+            // Constrain to viewport
+            const maxTop = window.innerHeight - element.offsetHeight;
+            const maxLeft = window.innerWidth - element.offsetWidth;
+            
+            element.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+            element.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+        }
+
+        function touchDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            pos1 = pos3 - touch.clientX;
+            pos2 = pos4 - touch.clientY;
+            pos3 = touch.clientX;
+            pos4 = touch.clientY;
+            
+            // Keep element within viewport bounds
+            const newTop = element.offsetTop - pos2;
+            const newLeft = element.offsetLeft - pos1;
+            
+            // Constrain to viewport
+            const maxTop = window.innerHeight - element.offsetHeight;
+            const maxLeft = window.innerWidth - element.offsetWidth;
+            
+            element.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+            element.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+        }
+
+        function closeDragElement() {
+            isDragging = false;
+            element.style.cursor = 'grab';
+            
+            document.removeEventListener('mousemove', elementDrag);
+            document.removeEventListener('mouseup', closeDragElement);
+            document.removeEventListener('touchmove', touchDrag);
+            document.removeEventListener('touchend', closeDragElement);
+            document.removeEventListener('touchcancel', closeDragElement);
+            
+            // Save position to localStorage
+            const pos = {
+                top: element.style.top,
+                left: element.style.left
+            };
+            localStorage.setItem('syncButtonsPos', JSON.stringify(pos));
+        }
+    }
+
+    // Function to initialize draggable sync buttons
+    function initDraggableSyncButtons() {
+        // Find sync buttons container
+        const syncDiv = document.getElementById('syncDiv');
+        
+        if (syncDiv) {
+            // Only make draggable on mobile devices
+            if (window.innerWidth <= 768) {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    syncDiv.style.position = 'fixed';
+                    syncDiv.style.cursor = 'grab';
+                    syncDiv.style.touchAction = 'none'; // Prevents page scroll while dragging
+                    syncDiv.style.userSelect = 'none';
+                    syncDiv.style.webkitUserSelect = 'none';
+                    syncDiv.style.webkitTouchCallout = 'none';
+                    
+                    // Restore saved position
+                    const savedPos = localStorage.getItem('syncButtonsPos');
+                    if (savedPos) {
+                        try {
+                            const pos = JSON.parse(savedPos);
+                            syncDiv.style.top = pos.top;
+                            syncDiv.style.left = pos.left;
+                        } catch (e) {
+                            console.log('Error restoring position:', e);
+                        }
+                    }
+                    
+                    makeDraggable(syncDiv);
+                    
+                    // Add visual feedback that it's draggable
+                    syncDiv.title = 'Drag to move';
+                    syncDiv.setAttribute('aria-label', 'Draggable sync buttons');
+                    
+                    // Add grab handle indicator
+                    if (!syncDiv.querySelector('.grab-handle')) {
+                        const handle = document.createElement('span');
+                        handle.className = 'grab-handle';
+                        handle.innerHTML = '⋮⋮';
+                        handle.style.cssText = `
+                            color: rgba(255,255,255,0.6);
+                            font-size: 18px;
+                            margin-right: 8px;
+                            letter-spacing: 2px;
+                            font-weight: bold;
+                            display: inline-block;
+                        `;
+                        syncDiv.insertBefore(handle, syncDiv.firstChild);
+                    }
+                }, 500);
+            }
+        } else {
+            // If not found yet, try again after a delay
+            setTimeout(initDraggableSyncButtons, 1000);
+        }
+    }
+
+    // Handle window resize - disable/enable draggable based on screen size
+    window.addEventListener('resize', function() {
+        const syncDiv = document.getElementById('syncDiv');
+        
+        if (syncDiv) {
+            if (window.innerWidth <= 768) {
+                // Mobile - enable draggable if not already enabled
+                if (!syncDiv.draggableEnabled) {
+                    syncDiv.style.cursor = 'grab';
+                    syncDiv.style.touchAction = 'none';
+                    makeDraggable(syncDiv);
+                    syncDiv.draggableEnabled = true;
+                    
+                    // Add grab handle if not present
+                    if (!syncDiv.querySelector('.grab-handle')) {
+                        const handle = document.createElement('span');
+                        handle.className = 'grab-handle';
+                        handle.innerHTML = '⋮⋮';
+                        handle.style.cssText = `
+                            color: rgba(255,255,255,0.6);
+                            font-size: 18px;
+                            margin-right: 8px;
+                            letter-spacing: 2px;
+                            font-weight: bold;
+                            display: inline-block;
+                        `;
+                        syncDiv.insertBefore(handle, syncDiv.firstChild);
+                    }
+                }
+            } else {
+                // Desktop - disable draggable
+                syncDiv.style.cursor = 'default';
+                syncDiv.style.touchAction = 'auto';
+                syncDiv.draggableEnabled = false;
+                
+                // Remove grab handle
+                const handle = syncDiv.querySelector('.grab-handle');
+                if (handle) {
+                    handle.remove();
+                }
+            }
+        }
+    });
+
+    // Optional: Add a function to reset position if needed
+    window.resetSyncButtonsPosition = function() {
+        const syncDiv = document.getElementById('syncDiv');
+        if (syncDiv) {
+            syncDiv.style.top = '20px';
+            syncDiv.style.left = '20px';
+            localStorage.removeItem('syncButtonsPos');
+            showToast('Sync buttons position reset', 'info');
+        }
+    };
     
     // ========== CLOUD SYNC FUNCTIONS ==========
     
@@ -301,6 +525,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== SYNC BUTTON ==========
     function addSyncButton() {
         const syncDiv = document.createElement('div');
+        syncDiv.id = 'syncDiv';
         syncDiv.style.cssText = `
             position: fixed;
             bottom: 20px;
@@ -309,12 +534,19 @@ document.addEventListener('DOMContentLoaded', function() {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 8px 16px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.15);
+            align-items: center;
         `;
         
         const saveBtn = document.createElement('button');
         saveBtn.innerHTML = '☁️ Save to Cloud';
         saveBtn.style.cssText = `
-            background: #4a90e2;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -322,14 +554,17 @@ document.addEventListener('DOMContentLoaded', function() {
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            white-space: nowrap;
         `;
         saveBtn.onclick = saveDataToCloud;
         
         const loadBtn = document.createElement('button');
         loadBtn.innerHTML = '☁️ Load from Cloud';
         loadBtn.style.cssText = `
-            background: #4caf50;
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -337,21 +572,26 @@ document.addEventListener('DOMContentLoaded', function() {
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            white-space: nowrap;
         `;
         loadBtn.onclick = loadDataFromCloud;
         
         const statusSpan = document.createElement('span');
         statusSpan.id = 'syncStatus';
         statusSpan.style.cssText = `
-            background: #333;
+            background: rgba(255,255,255,0.15);
             color: white;
-            padding: 10px 15px;
+            padding: 8px 16px;
             border-radius: 30px;
             font-size: 12px;
             display: flex;
             align-items: center;
             gap: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            white-space: nowrap;
         `;
         statusSpan.innerHTML = navigator.onLine ? '🟢 Online' : '🔴 Offline';
         
@@ -360,14 +600,19 @@ document.addEventListener('DOMContentLoaded', function() {
         syncDiv.appendChild(statusSpan);
         document.body.appendChild(syncDiv);
         
+        // Initialize draggable functionality after adding to DOM
+        initDraggableSyncButtons();
+        
         // Update online status
         window.addEventListener('online', () => {
-            document.getElementById('syncStatus').innerHTML = '🟢 Online';
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) statusEl.innerHTML = '🟢 Online';
             showToast('Back online - data will sync', 'success');
         });
         
         window.addEventListener('offline', () => {
-            document.getElementById('syncStatus').innerHTML = '🔴 Offline';
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) statusEl.innerHTML = '🔴 Offline';
             showToast('You are offline - changes saved locally', 'warning');
         });
     }
@@ -2100,8 +2345,8 @@ document.addEventListener('DOMContentLoaded', function() {
     DebugPanel.init();
     applyRoleBasedUI();
     addCreditLine();
-    addSyncButton();
+    addSyncButton(); // This now includes the draggable functionality
     initializeData();
     
-    console.log('App initialization complete with Firebase Cloud Syncing');
+    console.log('App initialization complete with Firebase Cloud Syncing and Draggable Sync Buttons');
 });
