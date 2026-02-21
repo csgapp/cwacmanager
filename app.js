@@ -1,11 +1,11 @@
-// app.js - Enhanced with Firebase Cloud Syncing
+// app.js - Complete Enhanced Version with Firebase Cloud Syncing
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
     // ========== FIREBASE CONFIGURATION ==========
-    // Replace with your Firebase config from Step 1
+    // REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIG VALUES
     const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_AUTH_DOMAIN",
@@ -19,54 +19,250 @@ document.addEventListener('DOMContentLoaded', function() {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     
+    // Enable offline persistence for field staff
+    db.enablePersistence({
+        synchronizeTabs: true
+    }).catch((err) => {
+        if (err.code == 'failed-precondition') {
+            console.log('Persistence failed - multiple tabs open');
+        } else if (err.code == 'unimplemented') {
+            console.log('Persistence not supported by browser');
+        }
+    });
+    
     // ========== CLOUD SYNC FUNCTIONS ==========
+    
+    // Save all data to appropriate collections
     async function saveDataToCloud() {
         try {
             showToast('Syncing data to cloud...', 'info');
             
-            const dataToSave = {
-                paidData: paidData,
-                unpaidData: unpaidData,
-                statusData: statusData,
-                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            // Use batch writes for consistency
+            const batch = db.batch();
             
-            await db.collection('cwacData').doc('mainData').set(dataToSave);
+            // Save paid members to PaidMembers collection
+            Object.keys(paidData).forEach(area => {
+                paidData[area].forEach((member, index) => {
+                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
+                    const memberRef = db.collection('PaidMembers').doc(memberId);
+                    batch.set(memberRef, {
+                        name: member.name,
+                        id: member.id,
+                        callNumber: member.callNumber,
+                        cwacArea: area,
+                        status: 'PAID',
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userRole,
+                        index: index
+                    }, { merge: true });
+                });
+            });
+            
+            // Save unpaid members to UnpaidMembers collection
+            Object.keys(unpaidData).forEach(area => {
+                unpaidData[area].forEach((member, index) => {
+                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
+                    const memberRef = db.collection('UnpaidMembers').doc(memberId);
+                    batch.set(memberRef, {
+                        name: member.name,
+                        id: member.id,
+                        callNumber: member.callNumber,
+                        cwacArea: area,
+                        status: 'UNPAID',
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userRole,
+                        index: index,
+                        needsReview: true
+                    }, { merge: true });
+                });
+            });
+            
+            // Save status data to Status collection
+            Object.keys(statusData).forEach(area => {
+                statusData[area].forEach((member, index) => {
+                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
+                    const statusRef = db.collection('Status').doc(memberId);
+                    batch.set(statusRef, {
+                        name: member.name,
+                        id: member.id,
+                        callNumber: member.callNumber,
+                        cwacArea: area,
+                        status: member.status || 'ALIVE',
+                        lastChecked: firebase.firestore.FieldValue.serverTimestamp(),
+                        checkedBy: userRole
+                    }, { merge: true });
+                });
+            });
+            
+            // Commit all writes
+            await batch.commit();
+            
             console.log('Data synced to cloud');
             showToast('Data synced successfully!', 'success');
+            
+            // Save to local as backup
+            saveDataToLocal();
+            
         } catch (e) {
             console.error('Cloud sync error:', e);
             showToast('Sync failed - check internet', 'error');
+            
+            // Save to local as fallback
+            saveDataToLocal();
         }
     }
     
+    // Load all data from cloud collections
     async function loadDataFromCloud() {
         try {
             showToast('Loading data from cloud...', 'info');
             
-            const doc = await db.collection('cwacData').doc('mainData').get();
+            // Clear existing data
+            paidData = {};
+            unpaidData = {};
+            statusData = {};
             
-            if (doc.exists) {
-                const data = doc.data();
-                paidData = data.paidData || {};
-                unpaidData = data.unpaidData || {};
-                statusData = data.statusData || {};
-                
-                console.log('Data loaded from cloud');
-                showToast('Data loaded successfully!', 'success');
-                
-                // Update UI
-                populateCwacLists();
-                showDataStats();
-                return true;
-            } else {
-                console.log('No data in cloud yet');
-                showToast('No saved data found', 'info');
-                return false;
-            }
+            // Load Paid Members
+            const paidSnapshot = await db.collection('PaidMembers').get();
+            paidSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!paidData[area]) paidData[area] = [];
+                paidData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber
+                });
+            });
+            
+            // Load Unpaid Members
+            const unpaidSnapshot = await db.collection('UnpaidMembers').get();
+            unpaidSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!unpaidData[area]) unpaidData[area] = [];
+                unpaidData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber
+                });
+            });
+            
+            // Load Status Data
+            const statusSnapshot = await db.collection('Status').get();
+            statusSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!statusData[area]) statusData[area] = [];
+                statusData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber,
+                    status: member.status
+                });
+            });
+            
+            // Sort data by name
+            Object.keys(paidData).forEach(area => {
+                paidData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            Object.keys(unpaidData).forEach(area => {
+                unpaidData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            Object.keys(statusData).forEach(area => {
+                statusData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            
+            console.log('Data loaded from cloud');
+            showToast('Data loaded successfully!', 'success');
+            
+            // Update UI
+            populateCwacLists();
+            showDataStats();
+            
+            // Save to local as backup
+            saveDataToLocal();
+            
+            return true;
+            
         } catch (e) {
             console.error('Cloud load error:', e);
             showToast('Failed to load from cloud', 'error');
+            return false;
+        }
+    }
+    
+    // Save a single phone number edit to EditCallNumber collection
+    async function savePhoneNumberEdit(area, memberIndex, oldNumber, newNumber, memberName, memberId) {
+        try {
+            const editRef = db.collection('EditCallNumber').doc();
+            
+            await editRef.set({
+                idOriginal: memberId || `unknown_${Date.now()}`,
+                memberName: memberName,
+                cwacArea: area,
+                oldCallNumber: oldNumber,
+                newCallNumber: newNumber,
+                editedBy: userRole,
+                editedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'pending_review',
+                syncedFrom: 'offline'
+            });
+            
+            console.log('Phone number edit saved to cloud');
+            
+            // Also update the member in UnpaidMembers collection
+            if (unpaidData[area] && unpaidData[area][memberIndex]) {
+                const member = unpaidData[area][memberIndex];
+                const memberRef = db.collection('UnpaidMembers').doc(member.id || memberId);
+                await memberRef.update({
+                    callNumber: newNumber,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: userRole,
+                    editHistory: firebase.firestore.FieldValue.arrayUnion({
+                        oldNumber: oldNumber,
+                        newNumber: newNumber,
+                        timestamp: new Date().toISOString(),
+                        editedBy: userRole
+                    })
+                });
+            }
+            
+            return true;
+            
+        } catch (e) {
+            console.error('Error saving phone edit:', e);
+            return false;
+        }
+    }
+    
+    // Save status update to Status collection
+    async function saveStatusUpdate(area, memberIndex, newStatus, memberName, memberId) {
+        try {
+            const member = statusData[area][memberIndex];
+            const statusRef = db.collection('Status').doc(member.id || memberId);
+            
+            await statusRef.set({
+                name: memberName,
+                id: member.id,
+                callNumber: member.callNumber,
+                cwacArea: area,
+                status: newStatus,
+                lastChecked: firebase.firestore.FieldValue.serverTimestamp(),
+                checkedBy: userRole,
+                statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                    oldStatus: member.status,
+                    newStatus: newStatus,
+                    timestamp: new Date().toISOString(),
+                    changedBy: userRole
+                })
+            }, { merge: true });
+            
+            console.log('Status update saved to cloud');
+            return true;
+            
+        } catch (e) {
+            console.error('Error saving status update:', e);
             return false;
         }
     }
@@ -77,6 +273,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('cwac_paidData', JSON.stringify(paidData));
             localStorage.setItem('cwac_unpaidData', JSON.stringify(unpaidData));
             localStorage.setItem('cwac_statusData', JSON.stringify(statusData));
+            localStorage.setItem('cwac_lastSync', new Date().toISOString());
             console.log('Data saved to local storage');
         } catch (e) {
             console.log('Could not save to local storage', e);
@@ -111,6 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
             z-index: 10001;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         `;
         
         const saveBtn = document.createElement('button');
@@ -143,9 +341,35 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         loadBtn.onclick = loadDataFromCloud;
         
+        const statusSpan = document.createElement('span');
+        statusSpan.id = 'syncStatus';
+        statusSpan.style.cssText = `
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 30px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        `;
+        statusSpan.innerHTML = navigator.onLine ? '🟢 Online' : '🔴 Offline';
+        
         syncDiv.appendChild(saveBtn);
         syncDiv.appendChild(loadBtn);
+        syncDiv.appendChild(statusSpan);
         document.body.appendChild(syncDiv);
+        
+        // Update online status
+        window.addEventListener('online', () => {
+            document.getElementById('syncStatus').innerHTML = '🟢 Online';
+            showToast('Back online - data will sync', 'success');
+        });
+        
+        window.addEventListener('offline', () => {
+            document.getElementById('syncStatus').innerHTML = '🔴 Offline';
+            showToast('You are offline - changes saved locally', 'warning');
+        });
     }
     
     // ========== AUTO-SYNC ON DATA CHANGES ==========
@@ -447,15 +671,16 @@ document.addEventListener('DOMContentLoaded', function() {
     let failedRecords = [];
     let virtualScrollers = {};
     
-    // Try loading from cloud first, fallback to local
+    // Initialize data - try cloud first, then local
     async function initializeData() {
         const cloudLoaded = await loadDataFromCloud();
         if (!cloudLoaded) {
-            loadDataFromLocal();
-        }
-        if (Object.keys(paidData).length > 0 || Object.keys(unpaidData).length > 0) {
-            populateCwacLists();
-            showDataStats();
+            const localLoaded = loadDataFromLocal();
+            if (localLoaded) {
+                showToast('Loaded data from local storage', 'info');
+                populateCwacLists();
+                showDataStats();
+            }
         }
     }
 
@@ -1085,6 +1310,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // UPDATED: Phone update function with cloud sync
     window.updateMemberPhone = async function(area, memberIndex, uniqueId) {
         const input = document.getElementById(`edit_${uniqueId}`);
         const statusDiv = document.getElementById(`status_${uniqueId}`);
@@ -1107,20 +1333,36 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        const oldNumber = unpaidData[area][memberIndex].callNumber;
-        unpaidData[area][memberIndex].callNumber = newNumber;
+        const member = unpaidData[area][memberIndex];
+        const oldNumber = member.callNumber;
         
+        // Update local data
+        member.callNumber = newNumber;
+        
+        // Update UI
         currentPhoneSpan.innerHTML = `📞 ${newNumber}`;
         statusDiv.innerHTML = '<span style="color: #4caf50;">✅ Phone number updated!</span>';
         input.value = newNumber;
         
         // Save to cloud
-        await saveDataToCloud();
+        const saved = await savePhoneNumberEdit(
+            area, 
+            memberIndex, 
+            oldNumber, 
+            newNumber, 
+            member.name, 
+            member.id
+        );
         
-        showToast(`Phone updated for ${unpaidData[area][memberIndex].name}`, 'success');
-        
-        if (userRole === 'admin') {
-            DebugPanel.log(`📞 Updated phone for ${unpaidData[area][memberIndex].name}: ${oldNumber} → ${newNumber}`, null, 'success');
+        if (saved) {
+            showToast(`Phone updated for ${member.name}`, 'success');
+            
+            if (userRole === 'admin') {
+                DebugPanel.log(`📞 Updated phone for ${member.name}: ${oldNumber} → ${newNumber}`, null, 'success');
+            }
+        } else {
+            statusDiv.innerHTML += '<br><span style="color: #ff9800;">⚠️ Will sync when online</span>';
+            saveDataToLocal(); // Save locally for later sync
         }
     };
 
@@ -1336,29 +1578,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // UPDATED: Status update function with cloud sync
     window.updateMemberStatus = async function(area, memberIndex, newStatus) {
         if (!statusData[area] || !statusData[area][memberIndex]) {
             showToast('Member not found!', 'error');
             return;
         }
         
-        const oldStatus = statusData[area][memberIndex].status;
-        statusData[area][memberIndex].status = newStatus;
+        const member = statusData[area][memberIndex];
+        const oldStatus = member.status;
+        
+        // Update local data
+        member.status = newStatus;
         
         // Save to cloud
-        await saveDataToCloud();
+        const saved = await saveStatusUpdate(
+            area, 
+            memberIndex, 
+            newStatus, 
+            member.name, 
+            member.id
+        );
         
+        // Refresh display
         const statusFilter = document.querySelector('input[name="statusFilter"]:checked').value;
         const areaFilter = document.getElementById('statusAreaFilter').value;
         displayStatusMembers(areaFilter, statusFilter);
         
-        showToast(`Status updated for ${statusData[area][memberIndex].name}`, 'success');
-        
-        if (userRole === 'admin') {
-            DebugPanel.log(`📊 Updated status for ${statusData[area][memberIndex].name}: ${oldStatus} → ${newStatus}`, null, 'success');
+        if (saved) {
+            showToast(`Status updated for ${member.name}`, 'success');
+            
+            if (userRole === 'admin') {
+                DebugPanel.log(`📊 Updated status for ${member.name}: ${oldStatus} → ${newStatus}`, null, 'success');
+            }
+        } else {
+            showToast('Status saved locally - will sync when online', 'warning');
+            saveDataToLocal();
         }
     };
 
+    // UPDATED: Status import function with cloud sync
     function importStatusCSV() {
         if (userRole !== 'admin') {
             showToast('Import function is only available for administrators.', 'error');
@@ -1382,6 +1641,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const rows = content.split('\n').filter(row => row.trim() !== '');
                 
                 statusData = {};
+                const batch = db.batch();
                 
                 let importedCount = 0;
                 let skippedCount = 0;
@@ -1401,14 +1661,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     const id = cols[1];
                     let callNumber = cols[2];
                     const cwacArea = cols[3];
-                    let status = cols[4] ? cols[4].toUpperCase() : '';
+                    let status = cols[4] ? cols[4].toUpperCase() : 'ALIVE';
                     
-                    if (status !== 'ALIVE' && status !== 'DECEASED' && status !== '') {
-                        skippedCount++;
-                        continue;
-                    }
-                    
-                    if (status === '') {
+                    if (status !== 'ALIVE' && status !== 'DECEASED') {
                         status = 'ALIVE';
                     }
                     
@@ -1418,15 +1673,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (!statusData[cwacArea]) statusData[cwacArea] = [];
                     statusData[cwacArea].push(member);
+                    
+                    // Add to cloud batch
+                    const statusRef = db.collection('Status').doc(id);
+                    batch.set(statusRef, {
+                        name: name,
+                        id: id,
+                        callNumber: cleanPhone,
+                        cwacArea: cwacArea,
+                        status: status,
+                        importedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        importedBy: userRole
+                    }, { merge: true });
+                    
                     importedCount++;
                 }
                 
+                // Commit to cloud
+                await batch.commit();
+                
+                // Sort local data
                 Object.keys(statusData).forEach(cwac => {
                     statusData[cwac].sort((a, b) => a.name.localeCompare(b.name));
                 });
-                
-                // Save to cloud
-                await saveDataToCloud();
                 
                 document.getElementById('statusImportMessage').innerHTML = 
                     `<div class="alert alert-success">✅ Imported ${importedCount} members (${skippedCount} skipped)</div>`;
@@ -1440,6 +1709,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     skipped: skippedCount,
                     areas: Object.keys(statusData).length
                 }, 'success');
+                
+                // Save to local
+                saveDataToLocal();
                 
             } catch (error) {
                 console.error('Import error:', error);
@@ -1488,14 +1760,14 @@ document.addEventListener('DOMContentLoaded', function() {
         DebugPanel.log(`✅ Status export complete: ${totalExported} members`, null, 'success');
     }
 
-    // ========== MAIN IMPORT FUNCTION ==========
+    // ========== MAIN IMPORT FUNCTION WITH CLOUD SYNC ==========
     async function importCSV(file) {
         if (userRole !== 'admin') {
             showToast('Import function is only available for administrators.', 'error');
             return;
         }
         
-        showLoading('importMessage', 'Processing large file... This may take a moment.');
+        showLoading('importMessage', 'Processing file...');
         DebugPanel.log('📁 Importing file:', file.name);
         
         try {
@@ -1507,6 +1779,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let importedCount = 0;
             let skippedCount = 0;
+            
+            // Use batch for cloud import
+            const batch = db.batch();
             
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i].trim();
@@ -1565,26 +1840,56 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const member = { name, id, callNumber: cleanPhone };
                 
+                // Add to local data
                 if (status === 'PAID') {
                     if (!paidData[cwacArea]) paidData[cwacArea] = [];
                     paidData[cwacArea].push(member);
-                    importedCount++;
+                    
+                    // Add to cloud batch
+                    const memberRef = db.collection('PaidMembers').doc(id);
+                    batch.set(memberRef, {
+                        name: name,
+                        id: id,
+                        callNumber: cleanPhone,
+                        cwacArea: cwacArea,
+                        status: 'PAID',
+                        importedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        importedBy: userRole,
+                        importBatch: `batch_${Date.now()}`
+                    });
+                    
                 } else {
                     if (!unpaidData[cwacArea]) unpaidData[cwacArea] = [];
                     unpaidData[cwacArea].push(member);
-                    importedCount++;
+                    
+                    // Add to cloud batch
+                    const memberRef = db.collection('UnpaidMembers').doc(id);
+                    batch.set(memberRef, {
+                        name: name,
+                        id: id,
+                        callNumber: cleanPhone,
+                        cwacArea: cwacArea,
+                        status: 'UNPAID',
+                        needsReview: true,
+                        importedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        importedBy: userRole,
+                        importBatch: `batch_${Date.now()}`
+                    });
                 }
+                
+                importedCount++;
             }
             
+            // Commit to cloud
+            await batch.commit();
+            
+            // Sort local data
             Object.keys(paidData).forEach(cwac => {
                 paidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
             Object.keys(unpaidData).forEach(cwac => {
                 unpaidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
-            
-            // Save to cloud
-            await saveDataToCloud();
             
             const totalUnpaid = Object.values(unpaidData).reduce((sum, arr) => sum + arr.length, 0);
             
@@ -1605,9 +1910,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 totalUnpaidMembers: totalUnpaid
             }, 'success');
             
-            if (totalUnpaid > 0) {
-                DebugPanel.log(`🔄 ${totalUnpaid} unpaid members need phone number review.`, null, 'warning');
-            }
+            // Save to local as backup
+            saveDataToLocal();
             
         } catch (error) {
             console.error('Import error:', error);
@@ -1797,6 +2101,7 @@ document.addEventListener('DOMContentLoaded', function() {
     applyRoleBasedUI();
     addCreditLine();
     addSyncButton();
+    initializeData();
     
-    console.log('App initialization complete');
+    console.log('App initialization complete with Firebase Cloud Syncing');
 });
