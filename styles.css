@@ -200,76 +200,52 @@ header p {
     box-shadow: var(--shadow-lg);
 }
 
-/* Navigation Tabs - RESTORED TO ORIGINAL SIZE */
+/* Navigation Tabs */
 nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.8rem;
+    gap: 0.5rem;
     margin-bottom: 2rem;
-    background: var(--light-bg);
-    padding: 1.2rem;
-    border-radius: 16px;
-    box-shadow: var(--shadow-sm);
+    background: transparent;
+    padding: 0.5rem;
+    border-radius: 12px;
     position: sticky;
     top: 10px;
     z-index: 100;
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.95);
 }
 
 .tabBtn {
     flex: 1 1 auto;
-    min-width: 130px;
-    padding: 1rem 1.2rem;
+    min-width: 70px;
+    padding: 0.5rem 0.8rem;
     border: none;
-    background: transparent;
-    color: #666;
-    font-weight: 600;
-    border-radius: 12px;
+    background: #f0f0f0;
+    color: #333;
+    font-weight: 500;
+    border-radius: 20px;
     cursor: pointer;
     transition: var(--transition);
-    font-size: clamp(0.85rem, 2vw, 1rem);
+    font-size: 0.8rem;
     white-space: nowrap;
-    position: relative;
-    overflow: hidden;
-}
-
-.tabBtn::before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 0;
-    height: 3px;
-    background: var(--primary-color);
-    transform: translateX(-50%);
-    transition: width 0.3s;
-}
-
-.tabBtn:hover::before {
-    width: 80%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .tabBtn:hover {
-    color: var(--primary-color);
-    background: rgba(102, 126, 234, 0.05);
+    background: #e0e0e0;
+    transform: translateY(-1px);
 }
 
 .tabBtn.active {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.tabBtn.active::before {
-    display: none;
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
 }
 
 /* Tab Content */
 .tabContent {
     background: white;
     border-radius: 20px;
-    padding: 2rem;
+    padding: 1.5rem;
     box-shadow: var(--shadow-sm);
     animation: contentFade 0.4s ease;
 }
@@ -282,29 +258,17 @@ nav {
 /* Section Headers */
 h2 {
     color: var(--text-dark);
-    margin-bottom: 1.8rem;
-    font-size: clamp(1.4rem, 4vw, 2rem);
-    border-bottom: 4px solid var(--primary-color);
-    padding-bottom: 0.8rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    border-bottom: 3px solid var(--primary-color);
+    padding-bottom: 0.5rem;
     display: inline-block;
-    position: relative;
-}
-
-h2::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 0;
-    width: 50px;
-    height: 4px;
-    background: var(--secondary-color);
-    border-radius: 2px;
 }
 
 h3 {
     color: #4a5568;
-    margin: 1.5rem 0;
-    font-size: clamp(1.2rem, 3vw, 1.4rem);
+    margin: 1rem 0;
+    font-size: 1.1rem;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -312,35 +276,22 @@ h3 {
 
 /* Search Box */
 .search-box {
-    margin-bottom: 20px;
-    position: sticky;
-    top: 0;
+    margin-bottom: 15px;
     background: white;
-    padding: 15px;
+    padding: 10px;
     z-index: 10;
-    border-radius: 16px;
-    box-shadow: var(--shadow-sm);
+    border-radius: 12px;
     border: 1px solid var(--border-color);
 }
 
 .search-box input {
     width: 100%;
-    padding: 12px 20px;
-    border: 2px solid var(--border-color);
-    border-radius: 30px;
-    font-size: 1rem;
+    padding: 8px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.9rem;
     transition: var(--transition);
     background: white;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-}
-
-.search-box input::placeholder {
-    color: #a0aec0;
 }
 
 /* Lists */
@@ -350,16 +301,17 @@ ul {
 
 #paidCwacList li, #unpaidCwacList li {
     background: var(--light-bg);
-    margin: 0.8rem 0;
-    padding: 1.2rem;
-    border-radius: 16px;
+    margin: 0.5rem 0;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
     cursor: pointer;
     transition: var(--transition);
-    border-left: 6px solid transparent;
+    border-left: 4px solid transparent;
     box-shadow: var(--shadow-sm);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 0.9rem;
 }
 
 #paidCwacList li {
@@ -370,58 +322,48 @@ ul {
     border-left-color: var(--warning-color);
 }
 
-#paidCwacList li:hover, #unpaidCwacList li:hover {
-    transform: translateX(8px);
-    box-shadow: var(--shadow-md);
-    background: white;
-}
-
-/* Member Cards */
+/* ========== EDIT CALL NUMBER TAB SPECIFIC STYLES - ENHANCED ========== */
+/* Member Cards - Slightly Increased Size */
 .member-card {
     background: white;
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.2rem;
-    margin-bottom: 1rem;
+    border-radius: 14px; /* Slightly increased from 12px */
+    padding: 1.2rem; /* Increased from 1rem */
+    margin-bottom: 1rem; /* Increased from 0.8rem */
     transition: var(--transition);
     box-shadow: var(--shadow-sm);
 }
 
-.member-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-}
-
 .member-card.paid {
-    border-left: 6px solid var(--success-color);
+    border-left: 4px solid var(--success-color);
 }
 
 .member-card.unpaid {
-    border-left: 6px solid var(--warning-color);
+    border-left: 4px solid var(--warning-color);
 }
 
 .member-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 1rem; /* Increased from 0.8rem */
     flex-wrap: wrap;
-    gap: 0.8rem;
+    gap: 0.5rem;
 }
 
 .member-name {
-    font-size: 1.2rem;
+    font-size: 1.1rem; /* Increased from 1rem */
     font-weight: 600;
     color: var(--text-dark);
 }
 
+/* Tags (Badges) - Slightly Larger Text */
 .member-badge {
-    padding: 0.4rem 1.2rem;
-    border-radius: 30px;
+    padding: 0.3rem 1rem; /* Increased from 0.2rem 0.8rem */
+    border-radius: 20px;
     color: white;
-    font-weight: 600;
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
+    font-weight: 500;
+    font-size: 0.85rem; /* Increased from 0.7rem */
 }
 
 .badge-paid { background: var(--success-color); }
@@ -431,74 +373,95 @@ ul {
 
 .member-details {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-    font-size: 0.95rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Increased min width from 120px */
+    gap: 1rem; /* Increased from 0.8rem */
+    margin-bottom: 1rem; /* Increased from 0.8rem */
+    font-size: 0.9rem; /* Increased from 0.85rem */
     color: #666;
-    padding: 0.8rem;
+    padding: 0.8rem; /* Increased from 0.5rem */
     background: var(--light-bg);
-    border-radius: 12px;
-}
-
-.member-details div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.member-details strong {
-    color: var(--text-dark);
-    min-width: 50px;
+    border-radius: 8px;
 }
 
 /* Phone Number Display */
 .phone-badge {
     background: #e9ecef;
-    padding: 0.4rem 1.2rem;
-    border-radius: 30px;
+    padding: 0.3rem 1rem; /* Increased from 0.2rem 0.8rem */
+    border-radius: 20px;
     font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.9rem;
+    font-size: 0.9rem; /* Increased from 0.8rem */
     display: inline-flex;
     align-items: center;
     gap: 5px;
 }
 
-/* Status Cards */
+/* Phone Number Input Field - Now Matches Current Number Display */
+.member-details input[type="text"][value*="phone"] {
+    width: 100%;
+    padding: 0.6rem 1rem; /* Increased padding */
+    font-size: 0.95rem; /* Increased from 0.9rem */
+    border: 2px solid var(--primary-color); /* Thicker border for visibility */
+    border-radius: 8px;
+    background: white;
+    font-family: 'Monaco', 'Menlo', monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Ensure all phone input fields match the current number display */
+.member-details input[type="text"][placeholder*="Phone"],
+.member-details input[type="text"][placeholder*="phone"],
+.member-details input[type="tel"] {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    background: white;
+    font-family: 'Monaco', 'Menlo', monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Edit Call Number Specific Container */
+#editCallNumbers .member-card {
+    /* Additional specificity for edit call number tab */
+    background: white;
+    border: 1px solid var(--border-color);
+}
+
+/* Status Cards - Keep as is */
 .status-card {
     background: white;
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.8rem;
     transition: var(--transition);
     box-shadow: var(--shadow-sm);
 }
 
 .status-card.alive {
-    border-left: 8px solid var(--success-color);
+    border-left: 6px solid var(--success-color);
 }
 
 .status-card.deceased {
-    border-left: 8px solid var(--danger-color);
+    border-left: 6px solid var(--danger-color);
 }
 
 .status-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
     flex-wrap: wrap;
-    gap: 0.8rem;
+    gap: 0.5rem;
 }
 
 .status-badge {
-    padding: 0.5rem 1.5rem;
-    border-radius: 30px;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
     color: white;
-    font-weight: bold;
-    font-size: 0.95rem;
-    letter-spacing: 0.5px;
+    font-weight: 600;
+    font-size: 0.8rem;
 }
 
 .status-badge.alive {
@@ -511,30 +474,31 @@ ul {
 
 .status-details {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.2rem;
-    margin-bottom: 1.5rem;
-    font-size: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
     background: var(--light-bg);
-    padding: 1.2rem;
-    border-radius: 12px;
+    padding: 0.8rem;
+    border-radius: 8px;
 }
 
 .status-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.8rem;
     flex-wrap: wrap;
 }
 
 .status-actions button {
     flex: 1;
-    min-width: 120px;
-    padding: 0.8rem;
+    min-width: 80px;
+    padding: 0.5rem;
     border: none;
-    border-radius: 10px;
-    font-weight: 600;
+    border-radius: 8px;
+    font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
+    font-size: 0.8rem;
 }
 
 .btn-alive {
@@ -542,59 +506,37 @@ ul {
     color: white;
 }
 
-.btn-alive:hover {
-    background: #3d8b40;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-}
-
 .btn-deceased {
     background: var(--danger-color);
     color: white;
-}
-
-.btn-deceased:hover {
-    background: #d32f2f;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
 }
 
 /* Filter Sections */
 .filter-section {
     background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
     color: white;
-    padding: 1.5rem;
-    border-radius: 16px;
-    margin-bottom: 2rem;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
     box-shadow: var(--shadow-md);
 }
 
 .filter-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: 1rem;
     align-items: center;
 }
 
 .filter-group label {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.3rem;
     cursor: pointer;
-    padding: 0.5rem 1rem;
+    padding: 0.3rem 0.8rem;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 30px;
-    transition: var(--transition);
-}
-
-.filter-group label:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.filter-group input[type="radio"] {
-    accent-color: var(--primary-color);
-    width: 16px;
-    height: 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
 }
 
 /* Forms and Inputs */
@@ -603,67 +545,30 @@ input[type="file"],
 select,
 textarea {
     width: 100%;
-    padding: 1rem;
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    font-size: 1rem;
+    padding: 0.8rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
     transition: var(--transition);
     background: white;
 }
 
-input[type="text"]:focus,
-select:focus,
-textarea:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-}
-
-input[type="file"] {
-    padding: 0.8rem;
-    background: var(--light-bg);
-}
-
 /* Buttons */
 button {
-    padding: 1rem 2rem;
+    padding: 0.6rem 1.2rem;
     border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
-    position: relative;
-    overflow: hidden;
-}
-
-button::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    transform: translate(-50%, -50%);
-    transition: width 0.6s, height 0.6s;
-}
-
-button:hover::before {
-    width: 300px;
-    height: 300px;
 }
 
 button:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
-}
-
-button:active {
-    transform: translateY(-1px);
 }
 
 button:disabled {
@@ -673,17 +578,13 @@ button:disabled {
     background: #ccc;
 }
 
-button:disabled::before {
-    display: none;
-}
-
 /* Import/Export Sections */
 .import-section, .export-section {
     background: var(--light-bg);
-    padding: 2rem;
-    border-radius: 20px;
-    margin-bottom: 2rem;
-    border: 2px dashed var(--border-color);
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 1px dashed var(--border-color);
 }
 
 .import-section {
@@ -696,24 +597,25 @@ button:disabled::before {
 
 /* Virtual Scroll Container */
 .virtual-scroll-container {
-    height: 600px;
+    height: 400px;
     overflow-y: auto;
     position: relative;
-    border: 2px solid var(--border-color);
-    border-radius: 16px;
-    padding: 0.8rem;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.5rem;
     background: var(--light-bg);
 }
 
 /* Alerts and Messages */
 .alert {
-    padding: 1.2rem;
-    border-radius: 12px;
-    margin: 1rem 0;
+    padding: 0.8rem;
+    border-radius: 8px;
+    margin: 0.8rem 0;
     animation: slideDown 0.4s ease;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-size: 0.85rem;
 }
 
 .alert-success {
@@ -744,11 +646,12 @@ button:disabled::before {
 .viewer-notice {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
     text-align: center;
     font-weight: 500;
+    font-size: 0.85rem;
     animation: pulse 2s infinite;
 }
 
@@ -763,23 +666,18 @@ button:disabled::before {
     background: #1e3a5f;
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 30px;
+    padding: 6px 15px;
+    border-radius: 20px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.8rem;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     transition: var(--transition);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
-.home-button:hover {
-    background: #2c4a7a;
-    transform: translateX(-5px);
-}
-
-/* ========== SYNC BUTTONS - SMALL AND CLEAN ========== */
+/* ========== SYNC BUTTONS STYLES - SIMPLIFIED ========== */
 #syncDiv {
     position: fixed;
     bottom: 20px;
@@ -791,8 +689,10 @@ button:disabled::before {
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    backdrop-filter: none !important;
 }
 
+/* Buttons inside sync container */
 #syncDiv button {
     padding: 6px 12px !important;
     font-size: 11px !important;
@@ -807,6 +707,7 @@ button:disabled::before {
     min-width: auto !important;
     height: 28px !important;
     line-height: 1 !important;
+    transition: all 0.2s ease !important;
 }
 
 #syncDiv button:first-child {
@@ -817,6 +718,16 @@ button:disabled::before {
     background: #4caf50 !important;
 }
 
+#syncDiv button:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3) !important;
+}
+
+#syncDiv button:active {
+    transform: translateY(0) !important;
+}
+
+/* Sync status indicator */
 #syncStatus {
     padding: 5px 10px !important;
     background: rgba(0,0,0,0.6) !important;
@@ -829,45 +740,18 @@ button:disabled::before {
     line-height: 18px !important;
     border: none !important;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+    backdrop-filter: none !important;
 }
 
-/* Mobile Responsive - Keep main UI large, only sync buttons small */
+/* Mobile styles */
 @media (max-width: 768px) {
-    /* Main UI remains LARGE */
-    body {
-        font-size: 16px;
+    #syncDiv {
+        cursor: default !important;
+        user-select: none;
+        -webkit-user-select: none;
+        background: transparent !important;
     }
     
-    .tabBtn {
-        font-size: clamp(0.85rem, 2vw, 1rem);
-        padding: 1rem 1.2rem;
-        min-width: 130px;
-    }
-    
-    .member-name {
-        font-size: 1.2rem;
-    }
-    
-    .member-details {
-        font-size: 0.95rem;
-    }
-    
-    /* Edit card inputs - LARGE for easy typing */
-    #unpaidMembersList .member-card.unpaid input[type="text"] {
-        width: 100% !important;
-        padding: 14px 16px !important;
-        font-size: 18px !important;
-        height: 55px !important;
-        border: 2px solid #ff9800 !important;
-    }
-    
-    #unpaidMembersList .member-card.unpaid button {
-        padding: 16px !important;
-        font-size: 18px !important;
-        height: 60px !important;
-    }
-    
-    /* Sync buttons remain SMALL */
     #syncDiv button {
         padding: 5px 10px !important;
         font-size: 10px !important;
@@ -878,50 +762,100 @@ button:disabled::before {
         padding: 4px 8px !important;
         font-size: 9px !important;
         height: 26px !important;
+        line-height: 18px !important;
     }
 }
 
-/* ========== MOBILE EDIT CARD OPTIMIZATIONS ========== */
-@media (max-width: 768px) {
-    #edit {
-        padding-bottom: 90px !important;
-    }
-
-    #unpaidMembersList .member-card.unpaid {
-        padding: 16px !important;
-        margin-bottom: 16px !important;
-    }
-
-    #unpaidMembersList .member-card.unpaid input[type="text"] {
-        width: 100% !important;
-        padding: 14px 16px !important;
-        font-size: 18px !important;
-        height: 55px !important;
-        border: 2px solid #ff9800 !important;
-    }
-
-    #unpaidMembersList .member-card.unpaid button {
-        width: 100% !important;
-        padding: 16px !important;
-        font-size: 18px !important;
-        height: 60px !important;
-        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%) !important;
-    }
-
-    #unpaidMembersList .member-card.unpaid .current-phone {
-        display: block !important;
-        background: #f0f9ff !important;
-        padding: 12px 16px !important;
-        font-size: 18px !important;
-    }
-}
-
-/* Print Styles */
-@media print {
-    nav, button, .home-button, .viewer-notice, .status-actions, 
-    .filter-section, .import-section, .export-section, #getStarted,
+/* Extra small devices */
+@media (max-width: 375px) {
     #syncDiv {
-        display: none !important;
+        gap: 3px !important;
+    }
+    
+    #syncDiv button {
+        padding: 4px 8px !important;
+        font-size: 9px !important;
+        height: 24px !important;
+    }
+    
+    #syncStatus {
+        padding: 4px 6px !important;
+        font-size: 8px !important;
+        height: 24px !important;
+        line-height: 16px !important;
+    }
+}
+
+/* Mobile Responsive Enhancements */
+@media (max-width: 768px) {
+    body {
+        font-size: 14px;
+    }
+    
+    nav {
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        padding: 0.3rem;
+        top: 5px;
+    }
+    
+    .tabBtn {
+        min-width: 60px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+        border-radius: 16px;
+    }
+    
+    .tabContent {
+        padding: 1rem;
+    }
+    
+    .stats-bar {
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+    }
+    
+    .stats-bar div {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+    
+    h2 {
+        font-size: 1.1rem;
+    }
+    
+    h3 {
+        font-size: 1rem;
+    }
+    
+    .member-name {
+        font-size: 0.9rem;
+    }
+    
+    .member-details {
+        font-size: 0.8rem;
+        padding: 0.5rem;
+    }
+    
+    .phone-badge {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.6rem;
+    }
+    
+    #paidCwacList li, #unpaidCwacList li {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .virtual-scroll-container {
+        height: 350px;
+    }
+    
+    .toast-notification {
+        width: 90%;
+        font-size: 0.8rem;
+        padding: 8px 16px;
     }
 }
 
@@ -955,10 +889,6 @@ button:disabled::before {
         color: #a0aec0;
     }
     
-    .member-details strong {
-        color: #e2e8f0;
-    }
-    
     input[type="text"], select, textarea {
         background: #4a5568;
         color: #e2e8f0;
@@ -979,7 +909,16 @@ button:disabled::before {
         color: #e2e8f0;
     }
     
-    .import-section, .export-section {
+    .tabBtn {
         background: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .tabBtn:hover {
+        background: #5a6578;
+    }
+    
+    .tabBtn.active {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     }
 }
