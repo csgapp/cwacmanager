@@ -522,8 +522,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== SYNC BUTTON ==========
-    function addSyncButton() {
+    // ========== SYNC BUTTON - SMALL AND CLEAN ==========
+function addSyncButton() {
     const syncDiv = document.createElement('div');
     syncDiv.id = 'syncDiv';
     
