@@ -524,98 +524,39 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== SYNC BUTTON ==========
     function addSyncButton() {
-        const syncDiv = document.createElement('div');
-        syncDiv.id = 'syncDiv';
-        syncDiv.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 10001;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            border-radius: 50px;
-            padding: 8px 16px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.15);
-            align-items: center;
-        `;
-        
-        const saveBtn = document.createElement('button');
-        saveBtn.innerHTML = '☁️ Save to Cloud';
-        saveBtn.style.cssText = `
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
-            transition: all 0.3s ease;
-            border: none;
-            white-space: nowrap;
-        `;
-        saveBtn.onclick = saveDataToCloud;
-        
-        const loadBtn = document.createElement('button');
-        loadBtn.innerHTML = '☁️ Load from Cloud';
-        loadBtn.style.cssText = `
-            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
-            transition: all 0.3s ease;
-            border: none;
-            white-space: nowrap;
-        `;
-        loadBtn.onclick = loadDataFromCloud;
-        
-        const statusSpan = document.createElement('span');
-        statusSpan.id = 'syncStatus';
-        statusSpan.style.cssText = `
-            background: rgba(255,255,255,0.15);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 30px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            border: 1px solid rgba(255,255,255,0.2);
-            white-space: nowrap;
-        `;
-        statusSpan.innerHTML = navigator.onLine ? '🟢 Online' : '🔴 Offline';
-        
-        syncDiv.appendChild(saveBtn);
-        syncDiv.appendChild(loadBtn);
-        syncDiv.appendChild(statusSpan);
-        document.body.appendChild(syncDiv);
-        
-        // Initialize draggable functionality after adding to DOM
-        initDraggableSyncButtons();
-        
-        // Update online status
-        window.addEventListener('online', () => {
-            const statusEl = document.getElementById('syncStatus');
-            if (statusEl) statusEl.innerHTML = '🟢 Online';
-            showToast('Back online - data will sync', 'success');
-        });
-        
-        window.addEventListener('offline', () => {
-            const statusEl = document.getElementById('syncStatus');
-            if (statusEl) statusEl.innerHTML = '🔴 Offline';
-            showToast('You are offline - changes saved locally', 'warning');
-        });
-    }
+    const syncDiv = document.createElement('div');
+    syncDiv.id = 'syncDiv';
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.innerHTML = '☁️ Save';
+    saveBtn.onclick = saveDataToCloud;
+    
+    const loadBtn = document.createElement('button');
+    loadBtn.innerHTML = '☁️ Load';
+    loadBtn.onclick = loadDataFromCloud;
+    
+    const statusSpan = document.createElement('span');
+    statusSpan.id = 'syncStatus';
+    statusSpan.innerHTML = navigator.onLine ? '🟢' : '🔴';
+    
+    syncDiv.appendChild(saveBtn);
+    syncDiv.appendChild(loadBtn);
+    syncDiv.appendChild(statusSpan);
+    document.body.appendChild(syncDiv);
+    
+    // Update online status
+    window.addEventListener('online', () => {
+        const statusEl = document.getElementById('syncStatus');
+        if (statusEl) statusEl.innerHTML = '🟢';
+        showToast('Back online', 'success');
+    });
+    
+    window.addEventListener('offline', () => {
+        const statusEl = document.getElementById('syncStatus');
+        if (statusEl) statusEl.innerHTML = '🔴';
+        showToast('Offline mode', 'warning');
+    });
+}
     
     // ========== AUTO-SYNC ON DATA CHANGES ==========
     function autoSync() {
