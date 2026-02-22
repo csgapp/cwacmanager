@@ -200,7 +200,7 @@ header p {
     box-shadow: var(--shadow-lg);
 }
 
-/* ========== FIXED: Role Indicator - No Flashing ========== */
+/* ========== FIXED: Role Indicator - No Movement/Flashing ========== */
 .role-indicator {
     position: fixed;
     top: 10px;
@@ -210,23 +210,26 @@ header p {
     font-size: 13px;
     font-weight: bold;
     z-index: 10001;
-    background: #ff9800;
-    color: white;
+    background: #ff9800 !important;
+    color: white !important;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     letter-spacing: 0.5px;
-    animation: none !important; /* Prevent flashing */
+    animation: none !important;
+    transition: none !important;
     opacity: 1 !important;
+    transform: none !important;
+    border: none !important;
 }
 
 .role-indicator.admin {
-    background: #4caf50;
+    background: #4caf50 !important;
 }
 
 .role-indicator.viewer {
-    background: #ff9800;
+    background: #ff9800 !important;
 }
 
-/* ========== FIXED: Navigation Tabs - Slightly Bigger ========== */
+/* ========== Navigation Tabs - Slightly Bigger ========== */
 nav {
     display: flex;
     flex-wrap: wrap;
@@ -348,7 +351,7 @@ ul {
     border-left-color: var(--warning-color);
 }
 
-/* ========== EDIT CALL NUMBER TAB SPECIFIC STYLES - ENHANCED ========== */
+/* ========== EDIT CALL NUMBER TAB SPECIFIC STYLES ========== */
 /* Member Cards - Slightly Increased Size */
 .member-card {
     background: white;
@@ -462,7 +465,33 @@ ul {
     box-shadow: var(--shadow-md) !important;
 }
 
-/* Status Cards - Keep as is */
+/* ========== FIXED: Import Section Text - Black and Visible ========== */
+.import-section {
+    background: #f0f7ff !important;
+    padding: 1.5rem !important;
+    border-radius: 12px !important;
+    margin-bottom: 1.5rem !important;
+    border: 2px dashed var(--info-color) !important;
+}
+
+.import-section h3 {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    margin-bottom: 10px !important;
+}
+
+.import-section p {
+    color: #333333 !important;
+    font-weight: 500 !important;
+    margin-bottom: 15px !important;
+}
+
+.import-section label {
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* Status Cards */
 .status-card {
     background: white;
     border: 1px solid var(--border-color);
@@ -585,6 +614,7 @@ textarea {
     font-size: 0.9rem;
     transition: var(--transition);
     background: white;
+    color: #000000;
 }
 
 /* Buttons */
@@ -612,21 +642,22 @@ button:disabled {
     background: #ccc;
 }
 
-/* Import/Export Sections */
-.import-section, .export-section {
+/* Export Sections */
+.export-section {
     background: var(--light-bg);
     padding: 1rem;
     border-radius: 12px;
     margin-bottom: 1.5rem;
     border: 1px dashed var(--border-color);
-}
-
-.import-section {
-    border-color: var(--info-color);
-}
-
-.export-section {
     border-color: var(--success-color);
+}
+
+.export-section h3 {
+    color: #000000 !important;
+}
+
+.export-section p {
+    color: #333333 !important;
 }
 
 /* Virtual Scroll Container */
@@ -686,13 +717,6 @@ button:disabled {
     text-align: center;
     font-weight: 500;
     font-size: 0.85rem;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 0.9; }
-    50% { opacity: 1; }
-    100% { opacity: 0.9; }
 }
 
 /* Home Button */
@@ -711,7 +735,7 @@ button:disabled {
     margin-bottom: 10px;
 }
 
-/* ========== FIXED: SYNC BUTTONS - NO BLACK BACKGROUND ========== */
+/* ========== FIXED: SYNC BUTTONS - Clean Colors ========== */
 #syncDiv {
     position: fixed;
     bottom: 20px;
@@ -719,8 +743,7 @@ button:disabled {
     z-index: 10001;
     display: flex;
     gap: 8px;
-    background: transparent !important; /* Removed black background */
-    backdrop-filter: none !important;
+    background: transparent !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
@@ -728,33 +751,30 @@ button:disabled {
 }
 
 #syncDiv button {
-    padding: 8px 16px !important;
-    font-size: 13px !important;
+    padding: 10px 20px !important;
+    font-size: 14px !important;
     border-radius: 30px !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     color: white !important;
     font-weight: 600 !important;
     cursor: pointer !important;
     white-space: nowrap !important;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
     border: none !important;
-    min-width: auto !important;
-    height: auto !important;
-    line-height: 1.2 !important;
     transition: all 0.2s ease !important;
+    letter-spacing: 0.5px !important;
 }
 
 #syncDiv button:first-child {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #4a90e2, #357abd) !important;
 }
 
 #syncDiv button:last-child {
-    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%) !important;
+    background: linear-gradient(135deg, #4caf50, #3d8b40) !important;
 }
 
 #syncDiv button:hover {
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5) !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25) !important;
 }
 
 #syncDiv button:active {
@@ -762,53 +782,31 @@ button:disabled {
 }
 
 #syncStatus {
-    padding: 8px 16px !important;
-    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%) !important;
+    padding: 10px 20px !important;
+    background: linear-gradient(135deg, #4a90e2, #357abd) !important;
     border-radius: 30px !important;
     color: white !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
     white-space: nowrap !important;
-    height: auto !important;
-    line-height: 1.2 !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4) !important;
-    backdrop-filter: none !important;
 }
 
 /* Mobile styles for sync buttons */
 @media (max-width: 768px) {
     #syncDiv {
         gap: 6px !important;
-        background: transparent !important;
-        padding: 0 !important;
     }
     
     #syncDiv button {
-        padding: 6px 12px !important;
-        font-size: 11px !important;
+        padding: 8px 16px !important;
+        font-size: 12px !important;
     }
     
     #syncStatus {
-        padding: 6px 12px !important;
-        font-size: 11px !important;
-    }
-}
-
-/* Extra small devices */
-@media (max-width: 375px) {
-    #syncDiv {
-        gap: 4px !important;
-    }
-    
-    #syncDiv button {
-        padding: 5px 10px !important;
-        font-size: 10px !important;
-    }
-    
-    #syncStatus {
-        padding: 5px 10px !important;
-        font-size: 10px !important;
+        padding: 8px 16px !important;
+        font-size: 12px !important;
     }
 }
 
@@ -967,5 +965,16 @@ button:disabled {
     
     .tabBtn.active {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    }
+    
+    /* Import section in dark mode */
+    .import-section {
+        background: #2d3748 !important;
+    }
+    
+    .import-section h3,
+    .import-section p,
+    .import-section label {
+        color: #ffffff !important;
     }
 }
