@@ -490,6 +490,70 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
     }
+
+    // ========== DELETE ALL FIREBASE DATA ==========
+async function deleteAllFirebaseData() {
+    if (!confirm('⚠️ This will permanently delete ALL data from Firebase! Continue?')) {
+        return;
+    }
+    
+    showToast('Deleting all data...', 'warning');
+    
+    try {
+        const collections = ['PaidMembers', 'UnpaidMembers', 'Status', 'EditCallNumber'];
+        
+        for (const collectionName of collections) {
+            const snapshot = await db.collection(collectionName).get();
+            const batch = db.batch();
+            
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            
+            await batch.commit();
+            console.log(`Deleted ${collectionName}`);
+        }
+        
+        // Clear local data too
+        paidData = {};
+        unpaidData = {};
+        statusData = {};
+        localStorage.clear();
+        
+        showToast('All Firebase data deleted!', 'success');
+        
+        // Refresh the page
+        setTimeout(() => location.reload(), 1500);
+        
+    } catch (error) {
+        console.error('Delete error:', error);
+        showToast('Error deleting data: ' + error.message, 'error');
+    }
+}
+
+// Add a delete button (optional)
+function addDeleteButton() {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerHTML = '🗑️ Delete All Data';
+    deleteBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 30px;
+        font-weight: bold;
+        z-index: 10002;
+        box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+    `;
+    deleteBtn.onclick = deleteAllFirebaseData;
+    document.body.appendChild(deleteBtn);
+}
+
+// Call this if you want the delete button
+// addDeleteButton();
     
     // ========== LOCAL STORAGE FALLBACK ==========
     function saveDataToLocal() {
