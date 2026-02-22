@@ -522,41 +522,100 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== SYNC BUTTON - SMALL AND CLEAN ==========
-function addSyncButton() {
-    const syncDiv = document.createElement('div');
-    syncDiv.id = 'syncDiv';
-    
-    const saveBtn = document.createElement('button');
-    saveBtn.innerHTML = '☁️ Save';
-    saveBtn.onclick = saveDataToCloud;
-    
-    const loadBtn = document.createElement('button');
-    loadBtn.innerHTML = '☁️ Load';
-    loadBtn.onclick = loadDataFromCloud;
-    
-    const statusSpan = document.createElement('span');
-    statusSpan.id = 'syncStatus';
-    statusSpan.innerHTML = navigator.onLine ? '🟢' : '🔴';
-    
-    syncDiv.appendChild(saveBtn);
-    syncDiv.appendChild(loadBtn);
-    syncDiv.appendChild(statusSpan);
-    document.body.appendChild(syncDiv);
-    
-    // Update online status
-    window.addEventListener('online', () => {
-        const statusEl = document.getElementById('syncStatus');
-        if (statusEl) statusEl.innerHTML = '🟢';
-        showToast('Back online', 'success');
-    });
-    
-    window.addEventListener('offline', () => {
-        const statusEl = document.getElementById('syncStatus');
-        if (statusEl) statusEl.innerHTML = '🔴';
-        showToast('Offline mode', 'warning');
-    });
-}
+    // ========== SYNC BUTTON ==========
+    function addSyncButton() {
+        const syncDiv = document.createElement('div');
+        syncDiv.id = 'syncDiv';
+        syncDiv.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10001;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 8px 16px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.15);
+            align-items: center;
+        `;
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.innerHTML = '☁️ Save to Cloud';
+        saveBtn.style.cssText = `
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            white-space: nowrap;
+        `;
+        saveBtn.onclick = saveDataToCloud;
+        
+        const loadBtn = document.createElement('button');
+        loadBtn.innerHTML = '☁️ Load from Cloud';
+        loadBtn.style.cssText = `
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            white-space: nowrap;
+        `;
+        loadBtn.onclick = loadDataFromCloud;
+        
+        const statusSpan = document.createElement('span');
+        statusSpan.id = 'syncStatus';
+        statusSpan.style.cssText = `
+            background: rgba(255,255,255,0.15);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            white-space: nowrap;
+        `;
+        statusSpan.innerHTML = navigator.onLine ? '🟢 Online' : '🔴 Offline';
+        
+        syncDiv.appendChild(saveBtn);
+        syncDiv.appendChild(loadBtn);
+        syncDiv.appendChild(statusSpan);
+        document.body.appendChild(syncDiv);
+        
+        // Initialize draggable functionality after adding to DOM
+        initDraggableSyncButtons();
+        
+        // Update online status
+        window.addEventListener('online', () => {
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) statusEl.innerHTML = '🟢 Online';
+            showToast('Back online - data will sync', 'success');
+        });
+        
+        window.addEventListener('offline', () => {
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) statusEl.innerHTML = '🔴 Offline';
+            showToast('You are offline - changes saved locally', 'warning');
+        });
+    }
     
     // ========== AUTO-SYNC ON DATA CHANGES ==========
     function autoSync() {
@@ -1429,72 +1488,74 @@ function addSyncButton() {
     }
     
     function displayUnpaidMembers(area) {
-        const container = document.getElementById('membersContainer');
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        let membersToShow = [];
-        
-        if (area === 'all') {
-            Object.keys(unpaidData).sort().forEach(cwacArea => {
-                unpaidData[cwacArea].forEach((member, index) => {
-                    membersToShow.push({
-                        ...member,
-                        cwacArea,
-                        originalIndex: index,
-                        uniqueId: `${cwacArea}_${index}`
-                    });
+    const container = document.getElementById('membersContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    let membersToShow = [];
+    
+    if (area === 'all') {
+        Object.keys(unpaidData).sort().forEach(cwacArea => {
+            unpaidData[cwacArea].forEach((member, index) => {
+                membersToShow.push({
+                    ...member,
+                    cwacArea,
+                    originalIndex: index,
+                    uniqueId: `${cwacArea}_${index}`
                 });
             });
-        } else {
-            if (unpaidData[area]) {
-                unpaidData[area].forEach((member, index) => {
-                    membersToShow.push({
-                        ...member,
-                        cwacArea: area,
-                        originalIndex: index,
-                        uniqueId: `${area}_${index}`
-                    });
+        });
+    } else {
+        if (unpaidData[area]) {
+            unpaidData[area].forEach((member, index) => {
+                membersToShow.push({
+                    ...member,
+                    cwacArea: area,
+                    originalIndex: index,
+                    uniqueId: `${area}_${index}`
                 });
-            }
+            });
         }
+    }
+    
+    if (membersToShow.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">No members in this area</div>';
+        return;
+    }
+    
+    membersToShow.forEach((member) => {
+        const memberCard = document.createElement('div');
+        memberCard.className = 'member-card unpaid';
+        memberCard.id = `member_${member.uniqueId}`;
         
-        if (membersToShow.length === 0) {
-            container.innerHTML = '<div class="alert alert-info">No members in this area</div>';
-            return;
-        }
-        
-        membersToShow.forEach((member) => {
-            const memberCard = document.createElement('div');
-            memberCard.className = 'member-card unpaid';
-            memberCard.id = `member_${member.uniqueId}`;
-            
-            memberCard.innerHTML = `
-                <div class="member-header">
-                    <span class="member-name">${member.name}</span>
-                    <span class="member-badge badge-unpaid">UNPAID</span>
-                </div>
-                <div class="member-details">
-                    <div><strong>ID:</strong> ${member.id}</div>
-                    <div><strong>CWAC:</strong> ${member.cwacArea}</div>
-                    <div><strong>Current Phone:</strong> <span class="phone-badge" id="currentPhone_${member.uniqueId}">📞 ${member.callNumber}</span></div>
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="font-weight: bold;">New Phone:</label>
-                    <input type="text" id="edit_${member.uniqueId}" value="${member.callNumber}" 
-                           style="flex: 1; padding: 8px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: monospace;"
+        memberCard.innerHTML = `
+            <div class="member-header">
+                <span class="member-name">${member.name}</span>
+                <span class="member-badge badge-unpaid">UNPAID</span>
+            </div>
+            <div class="member-details">
+                <div><strong>ID:</strong> ${member.id}</div>
+                <div><strong>CWAC:</strong> ${member.cwacArea}</div>
+                <div><strong>Current Phone:</strong> <span class="phone-badge" id="currentPhone_${member.uniqueId}">📞 ${member.callNumber}</span></div>
+                <div style="grid-column: 1 / -1; margin-top: 5px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Edit Phone Number:</label>
+                    <input type="text" 
+                           id="edit_${member.uniqueId}" 
+                           value="${member.callNumber}" 
+                           class="phone-input-field"
                            placeholder="Enter 9-digit number"
                            oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9).replace(/^0+/, '')">
                     <button onclick="updateMemberPhone('${member.cwacArea}', ${member.originalIndex}, '${member.uniqueId}')" 
-                            style="background: #4a90e2; padding: 8px 15px;">Update</button>
+                            class="update-phone-btn">Update Phone</button>
                 </div>
-                <div id="status_${member.uniqueId}" style="margin-top: 8px; font-size: 12px;"></div>
-            `;
-            
-            container.appendChild(memberCard);
-        });
-    }
+            </div>
+            <div id="status_${member.uniqueId}" style="margin-top: 8px; font-size: 12px;"></div>
+        `;
+        
+        container.appendChild(memberCard);
+    });
+}
 
     // UPDATED: Phone update function with cloud sync
     window.updateMemberPhone = async function(area, memberIndex, uniqueId) {
