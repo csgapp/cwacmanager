@@ -1,5 +1,5 @@
 // app.js - Complete Enhanced Version with Firebase Cloud Syncing, Draggable Sync Buttons,
-// and Registration Code System with Device Fingerprinting
+// Registration Code System with Device Fingerprinting, and Admin Registration Dashboard
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function createRegistrationOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'registrationOverlay';
-        overlay.className = 'registration-overlay'; // For CSS styling
+        overlay.className = 'registration-overlay';
         
         const modal = document.createElement('div');
         modal.className = 'registration-modal';
@@ -310,7 +310,8 @@ document.addEventListener('DOMContentLoaded', function() {
                        id="registrationCode" 
                        class="registration-input" 
                        placeholder="Enter registration code"
-                       autocomplete="off">
+                       autocomplete="off"
+                       autofocus>
                 
                 <div id="registrationMessage" class="registration-message"></div>
                 
@@ -333,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const registerBtn = document.getElementById('registerBtn');
         const messageDiv = document.getElementById('registrationMessage');
         
-        input.focus(); // Auto-focus the input
+        input.focus();
         
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -361,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     overlay.classList.add('fade-out');
                     setTimeout(() => {
                         overlay.remove();
-                        checkDeviceRegistration(); // Re-check after registration
+                        checkDeviceRegistration();
                     }, 300);
                 }, 1500);
             } else {
@@ -426,7 +427,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if this is first visit and we have a default code in URL
         const codeParam = urlParams.get('code');
         if (codeParam && REGISTRATION_CODES[codeParam.toUpperCase()]) {
-            // Try to auto-register with code from URL
             const result = await registerDevice(codeParam, fingerprint);
             if (result.success) {
                 sessionStorage.setItem('device_verified', 'true');
@@ -440,21 +440,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return false;
     }
     
-    // ========== ADMIN REGISTRATION MANAGEMENT ==========
+    // ========== ENHANCED ADMIN REGISTRATION MANAGEMENT ==========
     
-    // View registered devices (admin only)
-    async function viewRegisteredDevices() {
+    // Show registration management dashboard
+    window.showRegistrationDashboard = async function() {
         if (userRole !== 'admin') {
-            showToast('Only administrators can view registered devices', 'error');
+            showToast('Only administrators can manage registrations', 'error');
             return;
         }
         
         try {
             showToast('Loading registration data...', 'info');
             
-            const devicesSnapshot = await db.collection('RegisteredDevices').get();
-            const codesSnapshot = await db.collection('RegistrationCodes').get();
-            const historySnapshot = await db.collection('RegistrationHistory').orderBy('registeredAt', 'desc').limit(50).get();
+            // Fetch all data
+            const [devicesSnapshot, codesSnapshot, historySnapshot] = await Promise.all([
+                db.collection('RegisteredDevices').get(),
+                db.collection('RegistrationCodes').get(),
+                db.collection('RegistrationHistory').orderBy('registeredAt', 'desc').limit(100).get()
+            ]);
             
             const devices = [];
             devicesSnapshot.forEach(doc => {
@@ -471,126 +474,442 @@ document.addEventListener('DOMContentLoaded', function() {
                 history.push({ id: doc.id, ...doc.data() });
             });
             
-            // Create a modal display
-            const modal = document.createElement('div');
-            modal.className = 'admin-registration-modal';
-            modal.innerHTML = `
-                <div class="admin-registration-header">
-                    <h2>📊 Registration Management</h2>
-                    <button class="close-btn" onclick="this.closest('.admin-registration-modal').remove()">✕</button>
+            // Create dashboard modal
+            createRegistrationDashboard(devices, codes, history);
+            
+        } catch (e) {
+            console.error('Error loading registration data:', e);
+            showToast('Error loading registration data: ' + e.message, 'error');
+        }
+    };
+    
+    // Create the dashboard UI
+    function createRegistrationDashboard(devices, codes, history) {
+        // Remove existing modal if any
+        const existingModal = document.querySelector('.admin-registration-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.className = 'admin-registration-modal';
+        
+        modal.innerHTML = `
+            <div class="admin-registration-header">
+                <h2>🔐 Registration Management Dashboard</h2>
+                <button class="close-btn" onclick="this.closest('.admin-registration-modal').remove()">✕</button>
+            </div>
+            
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <span class="stat-value">${devices.length}</span>
+                    <span class="stat-label">Registered Devices</span>
                 </div>
-                <div class="admin-registration-tabs">
-                    <button class="tab-btn active" data-tab="devices">Devices (${devices.length})</button>
-                    <button class="tab-btn" data-tab="codes">Codes (${codes.length})</button>
-                    <button class="tab-btn" data-tab="history">Recent History</button>
+                <div class="stat-card">
+                    <span class="stat-value">${codes.length}</span>
+                    <span class="stat-label">Active Codes</span>
                 </div>
-                <div class="admin-registration-content">
-                    <div class="tab-pane active" id="devices-tab">
-                        <table class="registration-table">
-                            <thead>
-                                <tr>
-                                    <th>Fingerprint</th>
-                                    <th>Code</th>
-                                    <th>Platform</th>
-                                    <th>Registered</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${devices.map(d => `
-                                    <tr>
-                                        <td><small>${d.fingerprint.substring(0, 20)}...</small></td>
-                                        <td>${d.registrationCode || 'N/A'}</td>
-                                        <td>${d.platform || 'Unknown'}</td>
-                                        <td>${d.registeredAt ? new Date(d.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
+                <div class="stat-card">
+                    <span class="stat-value">${codes.reduce((sum, c) => sum + (c.usedCount || 0), 0)}</span>
+                    <span class="stat-label">Total Registrations</span>
+                </div>
+            </div>
+            
+            <div class="admin-registration-tabs">
+                <button class="tab-btn active" data-tab="codes">📋 Manage Codes</button>
+                <button class="tab-btn" data-tab="devices">📱 Devices (${devices.length})</button>
+                <button class="tab-btn" data-tab="history">📊 Registration History</button>
+                <button class="tab-btn" data-tab="generate">✨ Generate New Code</button>
+            </div>
+            
+            <div class="admin-registration-content">
+                <!-- Codes Tab -->
+                <div class="tab-pane active" id="codes-tab">
+                    <div class="table-header">
+                        <h3>Registration Codes</h3>
+                        <button class="refresh-btn" onclick="showRegistrationDashboard()">🔄 Refresh</button>
+                    </div>
+                    <table class="registration-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Description</th>
+                                <th>Usage</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${codes.length ? codes.map(c => {
+                                const createdAt = c.createdAt ? c.createdAt.toDate() : new Date();
+                                const expiryDate = new Date(createdAt);
+                                expiryDate.setDate(expiryDate.getDate() + (c.expiryDays || 30));
+                                const now = new Date();
+                                const isExpired = now > expiryDate;
+                                const isFull = c.usedCount >= c.maxUses;
+                                const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                                
+                                let statusClass = 'active';
+                                let statusText = '✅ Active';
+                                if (isExpired) {
+                                    statusClass = 'expired';
+                                    statusText = '❌ Expired';
+                                } else if (isFull) {
+                                    statusClass = 'full';
+                                    statusText = '⚠️ Full';
+                                }
+                                
+                                return `
+                                    <tr class="${statusClass}">
+                                        <td><strong>${c.code || c.id}</strong></td>
+                                        <td>${c.description || 'No description'}</td>
+                                        <td>${c.usedCount || 0}/${c.maxUses}</td>
+                                        <td>${expiryDate.toLocaleDateString()} (${daysLeft > 0 ? daysLeft + ' days' : 'Expired'})</td>
+                                        <td>${statusText}</td>
+                                        <td>
+                                            <button class="action-btn copy-btn" onclick="copyToClipboard('${c.code || c.id}')" title="Copy code">📋</button>
+                                            <button class="action-btn delete-btn" onclick="deleteRegistrationCode('${c.code || c.id}')" title="Delete code">🗑️</button>
+                                        </td>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="tab-pane" id="codes-tab">
-                        <table class="registration-table">
-                            <thead>
+                                `;
+                            }).join('') : `
                                 <tr>
-                                    <th>Code</th>
-                                    <th>Max Uses</th>
-                                    <th>Used</th>
-                                    <th>Expiry</th>
-                                    <th>Status</th>
+                                    <td colspan="6" style="text-align: center; padding: 30px;">
+                                        No registration codes found. Generate one in the "Generate New Code" tab.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                ${codes.map(c => {
-                                    const createdAt = c.createdAt ? c.createdAt.toDate() : new Date();
-                                    const expiryDate = new Date(createdAt);
-                                    expiryDate.setDate(expiryDate.getDate() + (REGISTRATION_CODES[c.code]?.expiryDays || 30));
-                                    const isExpired = new Date() > expiryDate;
-                                    const isFull = c.usedCount >= c.maxUses;
-                                    
-                                    return `
-                                        <tr class="${isExpired ? 'expired' : isFull ? 'full' : 'active'}">
-                                            <td><strong>${c.code}</strong></td>
-                                            <td>${c.maxUses}</td>
-                                            <td>${c.usedCount || 0}</td>
-                                            <td>${expiryDate.toLocaleDateString()}</td>
-                                            <td>${isExpired ? '❌ Expired' : isFull ? '⚠️ Full' : '✅ Active'}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="tab-pane" id="history-tab">
-                        <table class="registration-table">
-                            <thead>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Devices Tab -->
+                <div class="tab-pane" id="devices-tab">
+                    <table class="registration-table">
+                        <thead>
+                            <tr>
+                                <th>Device Fingerprint</th>
+                                <th>Code Used</th>
+                                <th>Platform</th>
+                                <th>Registered</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${devices.length ? devices.map(d => `
                                 <tr>
-                                    <th>Time</th>
-                                    <th>Code</th>
-                                    <th>Device</th>
+                                    <td><small>${d.fingerprint ? d.fingerprint.substring(0, 20) + '...' : 'Unknown'}</small></td>
+                                    <td>${d.registrationCode || 'N/A'}</td>
+                                    <td>${d.platform || 'Unknown'}</td>
+                                    <td>${d.registeredAt ? new Date(d.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
+                                    <td>
+                                        <button class="action-btn delete-btn" onclick="revokeDeviceAccess('${d.fingerprint}')" title="Revoke access">🚫</button>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                ${history.map(h => `
-                                    <tr>
-                                        <td>${h.registeredAt ? new Date(h.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
-                                        <td>${h.code}</td>
-                                        <td><small>${h.fingerprint?.substring(0, 20)}...</small></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 30px;">
+                                        No devices registered yet.
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- History Tab -->
+                <div class="tab-pane" id="history-tab">
+                    <table class="registration-table">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Code Used</th>
+                                <th>Device</th>
+                                <th>Platform</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${history.length ? history.map(h => `
+                                <tr>
+                                    <td>${h.registeredAt ? new Date(h.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
+                                    <td>${h.code || 'N/A'}</td>
+                                    <td><small>${h.fingerprint ? h.fingerprint.substring(0, 20) + '...' : 'Unknown'}</small></td>
+                                    <td>${h.deviceInfo?.platform || 'Unknown'}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 30px;">
+                                        No registration history yet.
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Generate Code Tab -->
+                <div class="tab-pane" id="generate-tab">
+                    <div class="generate-code-form">
+                        <h3>Generate New Registration Code</h3>
+                        
+                        <div class="form-group">
+                            <label>Code (optional):</label>
+                            <input type="text" id="newCode" placeholder="Leave blank for auto-generated" class="form-input">
+                            <small>If blank, will generate a random code like: CWAC-XXXX-XXXX</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <input type="text" id="codeDescription" placeholder="e.g., Field staff 2024" class="form-input" value="Field staff registration">
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Max Uses:</label>
+                                <input type="number" id="maxUses" value="50" min="1" max="1000" class="form-input">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Expiry (days):</label>
+                                <input type="number" id="expiryDays" value="30" min="1" max="365" class="form-input">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Code Type:</label>
+                            <select id="codeType" class="form-input">
+                                <option value="standard">Standard Access (Viewer)</option>
+                                <option value="editor">Editor Access (Can edit phones)</option>
+                                <option value="admin">Admin Access (Full access)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="generated-code-preview" id="codePreview" style="display: none;">
+                            <strong>Generated Code:</strong>
+                            <code id="previewCode"></code>
+                            <button class="copy-btn-small" onclick="copyGeneratedCode()">Copy</button>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button class="generate-btn" onclick="generateNewCode()">
+                                ✨ Generate Code
+                            </button>
+                            <button class="generate-btn secondary" onclick="generateMultipleCodes()">
+                                📦 Generate Multiple (5)
+                            </button>
+                        </div>
+                        
+                        <div id="generationResult" class="generation-result"></div>
                     </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add tab switching
+        modal.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                modal.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                
+                btn.classList.add('active');
+                modal.querySelector(`#${btn.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+    }
+    
+    // Generate a single new code
+    window.generateNewCode = async function() {
+        const codeInput = document.getElementById('newCode');
+        const description = document.getElementById('codeDescription').value || 'Registration code';
+        const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
+        const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
+        const codeType = document.getElementById('codeType').value;
+        
+        // Generate code if blank
+        let code = codeInput.value.trim().toUpperCase();
+        if (!code) {
+            const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            code = `${prefix}-${random}`;
+        }
+        
+        try {
+            // Check if code already exists
+            const existingCode = await db.collection('RegistrationCodes').doc(code).get();
+            if (existingCode.exists) {
+                showToast('Code already exists! Please use a different code.', 'error');
+                return;
+            }
+            
+            // Create the code
+            await db.collection('RegistrationCodes').doc(code).set({
+                code: code,
+                description: description,
+                maxUses: maxUses,
+                expiryDays: expiryDays,
+                codeType: codeType,
+                usedCount: 0,
+                usedBy: [],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: userRole
+            });
+            
+            // Show preview
+            const preview = document.getElementById('codePreview');
+            const previewCode = document.getElementById('previewCode');
+            previewCode.textContent = code;
+            preview.style.display = 'flex';
+            
+            document.getElementById('generationResult').innerHTML = `
+                <div class="success-message">
+                    ✅ Code generated successfully!
+                    <button onclick="copyToClipboard('${code}')">Copy Code</button>
                 </div>
             `;
             
-            document.body.appendChild(modal);
+            // Clear input
+            document.getElementById('newCode').value = '';
             
-            // Add tab switching
-            modal.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    modal.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                    
-                    btn.classList.add('active');
-                    modal.querySelector(`#${btn.dataset.tab}-tab`).classList.add('active');
-                });
-            });
+            showToast(`Code ${code} generated successfully!`, 'success');
             
         } catch (e) {
-            console.error('Error viewing registrations:', e);
-            showToast('Error loading registrations: ' + e.message, 'error');
+            console.error('Error generating code:', e);
+            showToast('Error generating code: ' + e.message, 'error');
         }
-    }
+    };
     
-    // Add admin button to view registrations
-    function addAdminRegistrationButton() {
-        if (userRole !== 'admin') return;
+    // Generate multiple codes at once
+    window.generateMultipleCodes = async function() {
+        const count = 5;
+        const description = document.getElementById('codeDescription').value || 'Bulk registration';
+        const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
+        const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
+        const codeType = document.getElementById('codeType').value;
         
-        const btn = document.createElement('button');
-        btn.innerHTML = '🔐 Manage Registrations';
-        btn.className = 'admin-registration-btn';
-        btn.onclick = viewRegisteredDevices;
-        document.body.appendChild(btn);
-    }
+        try {
+            const batch = db.batch();
+            const codes = [];
+            
+            for (let i = 0; i < count; i++) {
+                const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
+                const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const code = `${prefix}-${random}`;
+                
+                const codeRef = db.collection('RegistrationCodes').doc(code);
+                batch.set(codeRef, {
+                    code: code,
+                    description: `${description} #${i+1}`,
+                    maxUses: maxUses,
+                    expiryDays: expiryDays,
+                    codeType: codeType,
+                    usedCount: 0,
+                    usedBy: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: userRole
+                });
+                
+                codes.push(code);
+            }
+            
+            await batch.commit();
+            
+            // Show results
+            const resultDiv = document.getElementById('generationResult');
+            resultDiv.innerHTML = `
+                <div class="success-message">
+                    ✅ Generated ${count} codes:
+                    <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                        ${codes.map(code => `
+                            <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                                <code style="flex: 1;">${code}</code>
+                                <button class="copy-btn-small" onclick="copyToClipboard('${code}')">Copy</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button onclick="downloadCodesAsCSV(${JSON.stringify(codes)})" style="margin-top: 15px; padding: 8px 16px;">
+                        📥 Download as CSV
+                    </button>
+                </div>
+            `;
+            
+            showToast(`Generated ${count} codes successfully!`, 'success');
+            
+        } catch (e) {
+            console.error('Error generating multiple codes:', e);
+            showToast('Error generating codes: ' + e.message, 'error');
+        }
+    };
+    
+    // Copy generated code
+    window.copyGeneratedCode = function() {
+        const code = document.getElementById('previewCode').textContent;
+        copyToClipboard(code);
+    };
+    
+    // Download codes as CSV
+    window.downloadCodesAsCSV = function(codes) {
+        let csvContent = "Code,Description,Max Uses,Expiry Days,Type,Created\n";
+        const now = new Date().toISOString().split('T')[0];
+        
+        codes.forEach(code => {
+            csvContent += `${code},Bulk generated,50,30,standard,${now}\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `registration_codes_${now}.csv`;
+        link.click();
+    };
+    
+    // Copy to clipboard helper
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`Copied: ${text}`, 'success');
+        }).catch(() => {
+            // Fallback
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast(`Copied: ${text}`, 'success');
+        });
+    };
+    
+    // Delete a registration code
+    window.deleteRegistrationCode = async function(code) {
+        if (!confirm(`Are you sure you want to delete code "${code}"? This cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            await db.collection('RegistrationCodes').doc(code).delete();
+            showToast(`Code ${code} deleted`, 'success');
+            showRegistrationDashboard(); // Refresh
+        } catch (e) {
+            console.error('Error deleting code:', e);
+            showToast('Error deleting code: ' + e.message, 'error');
+        }
+    };
+    
+    // Revoke device access
+    window.revokeDeviceAccess = async function(fingerprint) {
+        if (!confirm('Are you sure you want to revoke access for this device? The user will need to register again.')) {
+            return;
+        }
+        
+        try {
+            await db.collection('RegisteredDevices').doc(fingerprint).delete();
+            showToast('Device access revoked', 'success');
+            showRegistrationDashboard(); // Refresh
+        } catch (e) {
+            console.error('Error revoking access:', e);
+            showToast('Error revoking access: ' + e.message, 'error');
+        }
+    };
     
     // ========== INTEGRATE WITH EXISTING USER ROLE SYSTEM ==========
     
@@ -662,6 +981,17 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeData();
         
         console.log('App initialization complete with Registration System');
+    }
+    
+    // Add admin button to view registrations
+    function addAdminRegistrationButton() {
+        if (userRole !== 'admin') return;
+        
+        const btn = document.createElement('button');
+        btn.innerHTML = '🔐 Manage Registrations';
+        btn.className = 'admin-registration-btn';
+        btn.onclick = showRegistrationDashboard;
+        document.body.appendChild(btn);
     }
     
     // ========== MODIFY EXISTING FUNCTIONS TO INCLUDE REGISTRATION ==========
@@ -830,22 +1160,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to initialize draggable sync buttons
     function initDraggableSyncButtons() {
-        // Find sync buttons container
         const syncDiv = document.getElementById('syncDiv');
         
         if (syncDiv) {
-            // Only make draggable on mobile devices
             if (window.innerWidth <= 768) {
-                // Small delay to ensure DOM is ready
                 setTimeout(() => {
                     syncDiv.style.position = 'fixed';
                     syncDiv.style.cursor = 'grab';
-                    syncDiv.style.touchAction = 'none'; // Prevents page scroll while dragging
+                    syncDiv.style.touchAction = 'none';
                     syncDiv.style.userSelect = 'none';
                     syncDiv.style.webkitUserSelect = 'none';
                     syncDiv.style.webkitTouchCallout = 'none';
                     
-                    // Restore saved position
                     const savedPos = localStorage.getItem('syncButtonsPos');
                     if (savedPos) {
                         try {
@@ -859,11 +1185,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     makeDraggable(syncDiv);
                     
-                    // Add visual feedback that it's draggable
                     syncDiv.title = 'Drag to move';
                     syncDiv.setAttribute('aria-label', 'Draggable sync buttons');
                     
-                    // Add grab handle indicator
                     if (!syncDiv.querySelector('.grab-handle')) {
                         const handle = document.createElement('span');
                         handle.className = 'grab-handle';
@@ -881,25 +1205,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 500);
             }
         } else {
-            // If not found yet, try again after a delay
             setTimeout(initDraggableSyncButtons, 1000);
         }
     }
 
-    // Handle window resize - disable/enable draggable based on screen size
     window.addEventListener('resize', function() {
         const syncDiv = document.getElementById('syncDiv');
         
         if (syncDiv) {
             if (window.innerWidth <= 768) {
-                // Mobile - enable draggable if not already enabled
                 if (!syncDiv.draggableEnabled) {
                     syncDiv.style.cursor = 'grab';
                     syncDiv.style.touchAction = 'none';
                     makeDraggable(syncDiv);
                     syncDiv.draggableEnabled = true;
                     
-                    // Add grab handle if not present
                     if (!syncDiv.querySelector('.grab-handle')) {
                         const handle = document.createElement('span');
                         handle.className = 'grab-handle';
@@ -916,12 +1236,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             } else {
-                // Desktop - disable draggable
                 syncDiv.style.cursor = 'default';
                 syncDiv.style.touchAction = 'auto';
                 syncDiv.draggableEnabled = false;
                 
-                // Remove grab handle
                 const handle = syncDiv.querySelector('.grab-handle');
                 if (handle) {
                     handle.remove();
@@ -930,7 +1248,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Optional: Add a function to reset position if needed
     window.resetSyncButtonsPosition = function() {
         const syncDiv = document.getElementById('syncDiv');
         if (syncDiv) {
@@ -943,15 +1260,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== CLOUD SYNC FUNCTIONS ==========
     
-    // Save all data to appropriate collections
     async function saveDataToCloud() {
         try {
             showToast('Syncing data to cloud...', 'info');
             
-            // Use batch writes for consistency
             const batch = db.batch();
             
-            // Save paid members to PaidMembers collection
             Object.keys(paidData).forEach(area => {
                 paidData[area].forEach((member, index) => {
                     const memberId = member.id || `${area}_${index}_${Date.now()}`;
@@ -969,7 +1283,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Save unpaid members to UnpaidMembers collection
             Object.keys(unpaidData).forEach(area => {
                 unpaidData[area].forEach((member, index) => {
                     const memberId = member.id || `${area}_${index}_${Date.now()}`;
@@ -988,7 +1301,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Save status data to Status collection
             Object.keys(statusData).forEach(area => {
                 statusData[area].forEach((member, index) => {
                     const memberId = member.id || `${area}_${index}_${Date.now()}`;
@@ -1005,35 +1317,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Commit all writes
             await batch.commit();
             
             console.log('Data synced to cloud');
             showToast('Data synced successfully!', 'success');
             
-            // Save to local as backup
             saveDataToLocal();
             
         } catch (e) {
             console.error('Cloud sync error:', e);
             showToast('Sync failed - check internet', 'error');
             
-            // Save to local as fallback
             saveDataToLocal();
         }
     }
     
-    // Load all data from cloud collections
     async function loadDataFromCloud() {
         try {
             showToast('Loading data from cloud...', 'info');
             
-            // Clear existing data
             paidData = {};
             unpaidData = {};
             statusData = {};
             
-            // Load Paid Members
             const paidSnapshot = await db.collection('PaidMembers').get();
             paidSnapshot.forEach(doc => {
                 const member = doc.data();
@@ -1046,7 +1352,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Load Unpaid Members
             const unpaidSnapshot = await db.collection('UnpaidMembers').get();
             unpaidSnapshot.forEach(doc => {
                 const member = doc.data();
@@ -1059,7 +1364,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Load Status Data
             const statusSnapshot = await db.collection('Status').get();
             statusSnapshot.forEach(doc => {
                 const member = doc.data();
@@ -1073,7 +1377,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
             
-            // Sort data by name
             Object.keys(paidData).forEach(area => {
                 paidData[area].sort((a, b) => a.name.localeCompare(b.name));
             });
@@ -1087,11 +1390,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Data loaded from cloud');
             showToast('Data loaded successfully!', 'success');
             
-            // Update UI
             populateCwacLists();
             showDataStats();
             
-            // Save to local as backup
             saveDataToLocal();
             
             return true;
@@ -1103,7 +1404,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Save a single phone number edit to EditCallNumber collection
     async function savePhoneNumberEdit(area, memberIndex, oldNumber, newNumber, memberName, memberId) {
         try {
             const editRef = db.collection('EditCallNumber').doc();
@@ -1122,7 +1422,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('Phone number edit saved to cloud');
             
-            // Also update the member in UnpaidMembers collection
             if (unpaidData[area] && unpaidData[area][memberIndex]) {
                 const member = unpaidData[area][memberIndex];
                 const memberRef = db.collection('UnpaidMembers').doc(member.id || memberId);
@@ -1147,7 +1446,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Save status update to Status collection
     async function saveStatusUpdate(area, memberIndex, newStatus, memberName, memberId) {
         try {
             const member = statusData[area][memberIndex];
@@ -1178,7 +1476,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== DELETE ALL FIREBASE DATA ==========
     async function deleteAllFirebaseData() {
         if (!confirm('⚠️ This will permanently delete ALL data from Firebase! Continue?')) {
             return;
@@ -1201,7 +1498,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log(`Deleted ${collectionName}`);
             }
             
-            // Clear local data too
             paidData = {};
             unpaidData = {};
             statusData = {};
@@ -1209,7 +1505,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             showToast('All Firebase data deleted!', 'success');
             
-            // Refresh the page
             setTimeout(() => location.reload(), 1500);
             
         } catch (error) {
@@ -1218,7 +1513,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== LOCAL STORAGE FALLBACK ==========
     function saveDataToLocal() {
         try {
             localStorage.setItem('cwac_paidData', JSON.stringify(paidData));
@@ -1249,7 +1543,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== SYNC BUTTON ==========
     function addSyncButton() {
         const syncDiv = document.createElement('div');
         syncDiv.id = 'syncDiv';
@@ -1327,10 +1620,8 @@ document.addEventListener('DOMContentLoaded', function() {
         syncDiv.appendChild(statusSpan);
         document.body.appendChild(syncDiv);
         
-        // Initialize draggable functionality after adding to DOM
         initDraggableSyncButtons();
         
-        // Update online status
         window.addEventListener('online', () => {
             const statusEl = document.getElementById('syncStatus');
             if (statusEl) statusEl.innerHTML = '🟢 Online';
@@ -1344,7 +1635,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // ========== AUTO-SYNC ON DATA CHANGES ==========
     function autoSync() {
         if (navigator.onLine) {
             saveDataToCloud();
@@ -1356,7 +1646,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== PERFORMANCE OPTIMIZATIONS ==========
     
-    // Debounce function for performance
     function debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -1369,7 +1658,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
     
-    // Virtual Scroller for large datasets
     class VirtualScroller {
         constructor(container, items, renderItem, itemHeight = 70) {
             this.container = container;
@@ -1421,7 +1709,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Optimized file reader for large CSV files
     async function readLargeCSV(file, chunkSize = 1024 * 1024) {
         return new Promise((resolve, reject) => {
             let offset = 0;
@@ -1466,7 +1753,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== UI HELPER FUNCTIONS ==========
     
-    // Show loading indicator
     function showLoading(elementId, message = 'Loading...') {
         const el = document.getElementById(elementId);
         if (el) {
@@ -1486,7 +1772,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Show toast notification
     function showToast(message, type = 'success', duration = 3000) {
         const toast = document.createElement('div');
         toast.className = `toast-notification toast-${type}`;
@@ -1499,7 +1784,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, duration);
     }
     
-    // Show alert message
     function showAlert(elementId, message, type = 'success') {
         const el = document.getElementById(elementId);
         if (el) {
@@ -1603,7 +1887,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let failedRecords = [];
     let virtualScrollers = {};
     
-    // Initialize data - try cloud first, then local
     async function initializeData() {
         const cloudLoaded = await loadDataFromCloud();
         if (!cloudLoaded) {
@@ -1616,11 +1899,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== GET STARTED BUTTON ==========
-    // Note: This is already overridden above with registration check
-    // The original functionality is preserved in the new onclick handler
-
-    // ========== RETURN TO LANDING PAGE ==========
     window.goToLandingPage = function() {
         const memberManagement = document.getElementById('memberManagement');
         const header = document.querySelector('header');
@@ -1636,7 +1914,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // ========== TAB SWITCHING ==========
     const tabButtons = document.querySelectorAll('.tabBtn');
     const tabContents = document.querySelectorAll('.tabContent');
 
@@ -1674,7 +1951,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== CALL NUMBER INPUT VALIDATION ==========
     const callNumberInput = document.getElementById('callNumber');
     if (callNumberInput) {
         callNumberInput.addEventListener('input', function () {
@@ -1686,7 +1962,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ========== ADD CREDIT LINE ==========
     function addCreditLine() {
         const header = document.querySelector('header');
         if (header) {
@@ -1709,7 +1984,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== SHOW DATA STATISTICS ==========
     function showDataStats() {
         const stats = {
             totalPaid: Object.values(paidData).reduce((sum, arr) => sum + arr.length, 0),
@@ -1742,7 +2016,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== ADD SEARCH TO LISTS ==========
     function addSearchToLists() {
         const lists = ['paid', 'unpaid'];
         
@@ -1873,7 +2146,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== SMART DEBUG PANEL ==========
     const DebugPanel = {
         panel: null,
         content: null,
@@ -2095,7 +2367,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // ========== EDIT TAB FUNCTIONS ==========
     function loadUnpaidMembersForEditing() {
         const editSection = document.getElementById('edit');
         if (!editSection) return;
@@ -2227,7 +2498,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // UPDATED: Phone update function with cloud sync
     window.updateMemberPhone = async function(area, memberIndex, uniqueId) {
         const input = document.getElementById(`edit_${uniqueId}`);
         const statusDiv = document.getElementById(`status_${uniqueId}`);
@@ -2253,15 +2523,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const member = unpaidData[area][memberIndex];
         const oldNumber = member.callNumber;
         
-        // Update local data
         member.callNumber = newNumber;
         
-        // Update UI
         currentPhoneSpan.innerHTML = `📞 ${newNumber}`;
         statusDiv.innerHTML = '<span style="color: #4caf50;">✅ Phone number updated!</span>';
         input.value = newNumber;
         
-        // Save to cloud
         const saved = await savePhoneNumberEdit(
             area, 
             memberIndex, 
@@ -2279,7 +2546,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             statusDiv.innerHTML += '<br><span style="color: #ff9800;">⚠️ Will sync when online</span>';
-            saveDataToLocal(); // Save locally for later sync
+            saveDataToLocal();
         }
     };
 
@@ -2322,7 +2589,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== STATUS TAB FUNCTIONS ==========
     function loadStatusMembers() {
         const statusSection = document.getElementById('status');
         if (!statusSection) return;
@@ -2495,7 +2761,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // UPDATED: Status update function with cloud sync
     window.updateMemberStatus = async function(area, memberIndex, newStatus) {
         if (!statusData[area] || !statusData[area][memberIndex]) {
             showToast('Member not found!', 'error');
@@ -2505,10 +2770,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const member = statusData[area][memberIndex];
         const oldStatus = member.status;
         
-        // Update local data
         member.status = newStatus;
         
-        // Save to cloud
         const saved = await saveStatusUpdate(
             area, 
             memberIndex, 
@@ -2517,7 +2780,6 @@ document.addEventListener('DOMContentLoaded', function() {
             member.id
         );
         
-        // Refresh display
         const statusFilter = document.querySelector('input[name="statusFilter"]:checked').value;
         const areaFilter = document.getElementById('statusAreaFilter').value;
         displayStatusMembers(areaFilter, statusFilter);
@@ -2534,7 +2796,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // UPDATED: Status import function with cloud sync
     function importStatusCSV() {
         if (userRole !== 'admin') {
             showToast('Import function is only available for administrators.', 'error');
@@ -2591,7 +2852,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!statusData[cwacArea]) statusData[cwacArea] = [];
                     statusData[cwacArea].push(member);
                     
-                    // Add to cloud batch
                     const statusRef = db.collection('Status').doc(id);
                     batch.set(statusRef, {
                         name: name,
@@ -2606,10 +2866,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     importedCount++;
                 }
                 
-                // Commit to cloud
                 await batch.commit();
                 
-                // Sort local data
                 Object.keys(statusData).forEach(cwac => {
                     statusData[cwac].sort((a, b) => a.name.localeCompare(b.name));
                 });
@@ -2627,7 +2885,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     areas: Object.keys(statusData).length
                 }, 'success');
                 
-                // Save to local
                 saveDataToLocal();
                 
             } catch (error) {
@@ -2677,7 +2934,6 @@ document.addEventListener('DOMContentLoaded', function() {
         DebugPanel.log(`✅ Status export complete: ${totalExported} members`, null, 'success');
     }
 
-    // ========== MAIN IMPORT FUNCTION WITH CLOUD SYNC ==========
     async function importCSV(file) {
         if (userRole !== 'admin') {
             showToast('Import function is only available for administrators.', 'error');
@@ -2697,7 +2953,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let importedCount = 0;
             let skippedCount = 0;
             
-            // Use batch for cloud import
             const batch = db.batch();
             
             for (let i = 1; i < rows.length; i++) {
@@ -2757,12 +3012,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const member = { name, id, callNumber: cleanPhone };
                 
-                // Add to local data
                 if (status === 'PAID') {
                     if (!paidData[cwacArea]) paidData[cwacArea] = [];
                     paidData[cwacArea].push(member);
                     
-                    // Add to cloud batch
                     const memberRef = db.collection('PaidMembers').doc(id);
                     batch.set(memberRef, {
                         name: name,
@@ -2779,7 +3032,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!unpaidData[cwacArea]) unpaidData[cwacArea] = [];
                     unpaidData[cwacArea].push(member);
                     
-                    // Add to cloud batch
                     const memberRef = db.collection('UnpaidMembers').doc(id);
                     batch.set(memberRef, {
                         name: name,
@@ -2797,10 +3049,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 importedCount++;
             }
             
-            // Commit to cloud
             await batch.commit();
             
-            // Sort local data
             Object.keys(paidData).forEach(cwac => {
                 paidData[cwac].sort((a, b) => a.name.localeCompare(b.name));
             });
@@ -2827,7 +3077,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 totalUnpaidMembers: totalUnpaid
             }, 'success');
             
-            // Save to local as backup
             saveDataToLocal();
             
         } catch (error) {
@@ -2839,7 +3088,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== POPULATE CWAC LISTS ==========
     function populateCwacLists() {
         const paidList = document.getElementById('paidCwacList');
         const unpaidList = document.getElementById('unpaidCwacList');
@@ -2883,7 +3131,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== SHOW MEMBERS ==========
     function showMembers(type, cwac) {
         const container = document.getElementById(type + 'Members');
         if (!container) return;
@@ -2948,7 +3195,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== EXPORT FUNCTIONS ==========
     function exportCSV(data, filename) {
         if (userRole !== 'admin') {
             showToast('Export function is only available for administrators.', 'error');
@@ -2986,7 +3232,6 @@ document.addEventListener('DOMContentLoaded', function() {
         DebugPanel.log(`✅ Export complete: ${totalExported} members to ${filename}`, null, 'success');
     }
 
-    // ========== EVENT LISTENERS ==========
     const importBtn = document.getElementById('importBtn');
     if (importBtn) {
         importBtn.addEventListener('click', () => {
