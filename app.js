@@ -1109,6 +1109,73 @@ window.generateMultipleCodes = async function() {
         showToast('Error generating codes: ' + e.message, 'error');
     }
 };
+
+// ========== FIXED DELETE REGISTRATION CODE ==========
+
+// Delete a registration code - FIXED VERSION
+    window.deleteRegistrationCode = async function(code) {
+    if (!code) {
+        showToast('No code specified', 'error');
+        return;
+    }
+    
+    // Clean the code (remove any extra quotes or spaces)
+    const cleanCode = code.toString().trim().replace(/['"]/g, '');
+    
+    if (!confirm(`⚠️ Are you sure you want to delete code "${cleanCode}"?\n\nThis will permanently remove this code from the database. Users who registered with this code will still have access, but new users cannot use this code.`)) {
+        return;
+    }
+    
+    try {
+        showToast('Deleting code...', 'info');
+        console.log('Attempting to delete code:', cleanCode);
+        
+        // Try to delete by document ID first
+        let deleted = false;
+        
+        try {
+            await db.collection('RegistrationCodes').doc(cleanCode).delete();
+            deleted = true;
+            console.log('Deleted by document ID:', cleanCode);
+        } catch (e) {
+            console.log('Could not delete by ID, trying query...');
+        }
+        
+        // If not deleted by ID, try querying for the code field
+        if (!deleted) {
+            const querySnapshot = await db.collection('RegistrationCodes')
+                .where('code', '==', cleanCode)
+                .get();
+            
+            if (!querySnapshot.empty) {
+                const batch = db.batch();
+                querySnapshot.forEach(doc => {
+                    console.log('Deleting document:', doc.id);
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                deleted = true;
+            }
+        }
+        
+        if (deleted) {
+            showToast(`Code "${cleanCode}" deleted successfully`, 'success');
+            
+            // Refresh the dashboard
+            setTimeout(() => {
+                if (typeof showRegistrationDashboard === 'function') {
+                    showRegistrationDashboard();
+                }
+            }, 1000);
+        } else {
+            showToast(`Code "${cleanCode}" not found in database`, 'warning');
+        }
+        
+    } catch (e) {
+        console.error('Error deleting code:', e);
+        showToast('Error deleting code: ' + e.message, 'error');
+    }
+};
     
     // ========== INTEGRATE WITH EXISTING USER ROLE SYSTEM ==========
     
