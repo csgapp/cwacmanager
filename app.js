@@ -779,67 +779,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Generate multiple codes at once
-    window.generateMultipleCodes = async function() {
-        const count = 5;
-        const description = document.getElementById('codeDescription').value || 'Bulk registration';
-        const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
-        const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
-        const codeType = document.getElementById('codeType').value;
+    // Generate multiple codes at once - FIXED VERSION
+window.generateMultipleCodes = async function() {
+    const count = 5;
+    const description = document.getElementById('codeDescription').value || 'Bulk registration';
+    const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
+    const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
+    const codeType = document.getElementById('codeType').value;
+    
+    try {
+        const batch = db.batch();
+        const codes = [];
         
-        try {
-            const batch = db.batch();
-            const codes = [];
+        for (let i = 0; i < count; i++) {
+            const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const code = `${prefix}-${random}`;
             
-            for (let i = 0; i < count; i++) {
-                const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
-                const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const code = `${prefix}-${random}`;
-                
-                const codeRef = db.collection('RegistrationCodes').doc(code);
-                batch.set(codeRef, {
-                    code: code,
-                    description: `${description} #${i+1}`,
-                    maxUses: maxUses,
-                    expiryDays: expiryDays,
-                    codeType: codeType,
-                    usedCount: 0,
-                    usedBy: [],
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: userRole
-                });
-                
-                codes.push(code);
-            }
+            const codeRef = db.collection('RegistrationCodes').doc(code);
+            batch.set(codeRef, {
+                code: code,
+                description: `${description} #${i+1}`,
+                maxUses: maxUses,
+                expiryDays: expiryDays,
+                codeType: codeType,
+                usedCount: 0,
+                usedBy: [],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: userRole
+            });
             
-            await batch.commit();
-            
-            // Show results
-            const resultDiv = document.getElementById('generationResult');
-            resultDiv.innerHTML = `
-                <div class="success-message">
-                    ✅ Generated ${count} codes:
-                    <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
-                        ${codes.map(code => `
-                            <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 4px;">
-                                <code style="flex: 1;">${code}</code>
-                                <button class="copy-btn-small" onclick="copyToClipboard('${code}')">Copy</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <button onclick="downloadCodesAsCSV(${JSON.stringify(codes)})" style="margin-top: 15px; padding: 8px 16px;">
-                        📥 Download as CSV
-                    </button>
-                </div>
-            `;
-            
-            showToast(`Generated ${count} codes successfully!`, 'success');
-            
-        } catch (e) {
-            console.error('Error generating multiple codes:', e);
-            showToast('Error generating codes: ' + e.message, 'error');
+            codes.push(code);
         }
-    };
+        
+        await batch.commit();
+        
+        // Show results with working download button
+        const resultDiv = document.getElementById('generationResult');
+        resultDiv.innerHTML = `
+            <div class="success-message">
+                ✅ Generated ${count} codes:
+                <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                    ${codes.map(code => `
+                        <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                            <code style="flex: 1; font-family: monospace;">${code}</code>
+                            <button class="copy-btn-small" onclick="copyToClipboard('${code}')">Copy</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button onclick="downloadCodesAsCSV(${JSON.stringify(codes)})" style="margin-top: 15px; padding: 8px 16px; background: var(--success-color); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    📥 Download ${codes.length} Codes as CSV
+                </button>
+            </div>
+        `;
+        
+        showToast(`Generated ${count} codes successfully!`, 'success');
+        
+    } catch (e) {
+        console.error('Error generating multiple codes:', e);
+        showToast('Error generating codes: ' + e.message, 'error');
+    }
+};
     
     // Copy generated code
     window.copyGeneratedCode = function() {
@@ -847,37 +847,48 @@ document.addEventListener('DOMContentLoaded', function() {
         copyToClipboard(code);
     };
     
-    // Download codes as CSV
+    // Download codes as CSV - FIXED VERSION
     window.downloadCodesAsCSV = function(codes) {
-        let csvContent = "Code,Description,Max Uses,Expiry Days,Type,Created\n";
+    try {
+        // Ensure codes is an array
+        const codesArray = Array.isArray(codes) ? codes : [];
+        
+        if (codesArray.length === 0) {
+            showToast('No codes to download', 'warning');
+            return;
+        }
+        
+        // Create CSV content
+        let csvContent = "Code,Description,Max Uses,Expiry Days,Type,Created Date\n";
         const now = new Date().toISOString().split('T')[0];
         
-        codes.forEach(code => {
-            csvContent += `${code},Bulk generated,50,30,standard,${now}\n`;
+        codesArray.forEach(code => {
+            // Escape any commas in the code
+            const escapedCode = code.includes(',') ? `"${code}"` : code;
+            csvContent += `${escapedCode},Bulk generated,50,30,standard,${now}\n`;
         });
         
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        // Create blob and download
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // Added BOM for Excel compatibility
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        
+        link.href = url;
         link.download = `registration_codes_${now}.csv`;
+        document.body.appendChild(link);
         link.click();
-    };
-    
-    // Copy to clipboard helper
-    window.copyToClipboard = function(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast(`Copied: ${text}`, 'success');
-        }).catch(() => {
-            // Fallback
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showToast(`Copied: ${text}`, 'success');
-        });
-    };
+        
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showToast(`Downloaded ${codesArray.length} codes`, 'success');
+        
+    } catch (error) {
+        console.error('Error downloading CSV:', error);
+        showToast('Error downloading CSV: ' + error.message, 'error');
+    }
+};
     
     // Delete a registration code
     window.deleteRegistrationCode = async function(code) {
