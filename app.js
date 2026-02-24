@@ -1,19 +1,19 @@
-// app.js - Complete Enhanced Version with Firebase Cloud Syncing and Draggable Sync Buttons
+// app.js - Complete Enhanced Version with Firebase Cloud Syncing, Draggable Sync Buttons,
+// and Registration Code System with Device Fingerprinting
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
     // ========== FIREBASE CONFIGURATION ==========
-    // REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIG VALUES
     const firebaseConfig = {
-  apiKey: "AIzaSyBh_UArb8QhTrgOJh38pL8ZCrGrrcwKToc",
-  authDomain: "cwacmanager-cedd6.firebaseapp.com",
-  projectId: "cwacmanager-cedd6",
-  storageBucket: "cwacmanager-cedd6.firebasestorage.app",
-  messagingSenderId: "986970274761",
-  appId: "1:986970274761:web:006859e6487ae9ae36c618"
-};
+        apiKey: "AIzaSyBh_UArb8QhTrgOJh38pL8ZCrGrrcwKToc",
+        authDomain: "cwacmanager-cedd6.firebaseapp.com",
+        projectId: "cwacmanager-cedd6",
+        storageBucket: "cwacmanager-cedd6.firebasestorage.app",
+        messagingSenderId: "986970274761",
+        appId: "1:986970274761:web:006859e6487ae9ae36c618"
+    };
     
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
@@ -29,6 +29,693 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Persistence not supported by browser');
         }
     });
+    
+    // ========== DEVICE FINGERPRINTING SYSTEM ==========
+    
+    // Generate a unique device fingerprint
+    async function generateDeviceFingerprint() {
+        const components = [];
+        
+        // Screen properties
+        components.push(screen.width + 'x' + screen.height);
+        components.push(screen.colorDepth);
+        components.push(screen.availWidth + 'x' + screen.availHeight);
+        
+        // Browser and OS info
+        components.push(navigator.userAgent);
+        components.push(navigator.language);
+        components.push(navigator.platform);
+        components.push(navigator.hardwareConcurrency || 'unknown');
+        
+        // Timezone
+        components.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        
+        // Touch support
+        components.push('touch:' + ('ontouchstart' in window));
+        
+        // WebGL info if available
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+                    components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+                }
+            }
+        } catch (e) {
+            console.log('WebGL fingerprinting not available');
+        }
+        
+        // Audio fingerprint (simplified)
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            components.push(audioContext.sampleRate || 'unknown');
+        } catch (e) {
+            console.log('Audio fingerprinting not available');
+        }
+        
+        // Check for stored fingerprint
+        let fingerprint = localStorage.getItem('device_fingerprint');
+        
+        if (!fingerprint) {
+            // Create hash of components
+            const fingerprintString = components.join('|||');
+            const encoder = new TextEncoder();
+            const data = encoder.encode(fingerprintString);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            // Store the fingerprint
+            localStorage.setItem('device_fingerprint', fingerprint);
+            localStorage.setItem('device_first_seen', new Date().toISOString());
+        }
+        
+        return fingerprint;
+    }
+    
+    // ========== REGISTRATION CODE SYSTEM ==========
+    
+    // Registration codes collection
+    const REGISTRATION_CODES = {
+        // Format: 'CODE': { maxUses: number, expiryDays: number, description: string }
+        'CWAC2024': { maxUses: 100, expiryDays: 30, description: 'Main registration code' },
+        'FIELD2024': { maxUses: 50, expiryDays: 60, description: 'Field staff code' },
+        'ADMIN2024': { maxUses: 5, expiryDays: 90, description: 'Admin override code' }
+    };
+    
+    // Check if device is registered
+    async function isDeviceRegistered(fingerprint) {
+        try {
+            const deviceDoc = await db.collection('RegisteredDevices').doc(fingerprint).get();
+            return deviceDoc.exists;
+        } catch (e) {
+            console.error('Error checking device registration:', e);
+            // Fallback to local storage if offline
+            const localDevices = JSON.parse(localStorage.getItem('registered_devices') || '[]');
+            return localDevices.includes(fingerprint);
+        }
+    }
+    
+    // Validate registration code
+    async function validateRegistrationCode(code, fingerprint) {
+        const normalizedCode = code.trim().toUpperCase();
+        
+        // Check if code exists
+        if (!REGISTRATION_CODES[normalizedCode]) {
+            return { valid: false, message: 'Invalid registration code' };
+        }
+        
+        const codeInfo = REGISTRATION_CODES[normalizedCode];
+        
+        try {
+            // Check code usage in Firebase
+            const codeDoc = await db.collection('RegistrationCodes').doc(normalizedCode).get();
+            
+            if (codeDoc.exists) {
+                const data = codeDoc.data();
+                
+                // Check expiry
+                const createdAt = data.createdAt.toDate();
+                const expiryDate = new Date(createdAt);
+                expiryDate.setDate(expiryDate.getDate() + codeInfo.expiryDays);
+                
+                if (new Date() > expiryDate) {
+                    return { valid: false, message: 'Registration code has expired' };
+                }
+                
+                // Check max uses
+                if (data.usedCount >= codeInfo.maxUses) {
+                    return { valid: false, message: 'Registration code has reached maximum uses' };
+                }
+                
+                // Check if this device already used this code
+                if (data.usedBy && data.usedBy.includes(fingerprint)) {
+                    return { valid: true, message: 'Device already registered with this code' };
+                }
+                
+                return { valid: true, codeInfo, existingData: data };
+            } else {
+                // First time this code is being used
+                return { valid: true, codeInfo, existingData: null };
+            }
+        } catch (e) {
+            console.error('Error validating code:', e);
+            // If offline, allow using code (will validate when online)
+            return { valid: true, codeInfo, offline: true };
+        }
+    }
+    
+    // Register device with code
+    async function registerDevice(code, fingerprint) {
+        const validation = await validateRegistrationCode(code, fingerprint);
+        
+        if (!validation.valid) {
+            return { success: false, message: validation.message };
+        }
+        
+        try {
+            const normalizedCode = code.trim().toUpperCase();
+            const codeInfo = validation.codeInfo;
+            
+            // Get device info
+            const deviceInfo = {
+                fingerprint: fingerprint,
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                screenSize: `${screen.width}x${screen.height}`,
+                firstSeen: localStorage.getItem('device_first_seen') || new Date().toISOString(),
+                registeredAt: firebase.firestore.FieldValue.serverTimestamp(),
+                registrationCode: normalizedCode
+            };
+            
+            // Start a batch write
+            const batch = db.batch();
+            
+            // Update or create registration code document
+            const codeRef = db.collection('RegistrationCodes').doc(normalizedCode);
+            
+            if (validation.existingData) {
+                batch.update(codeRef, {
+                    usedCount: firebase.firestore.FieldValue.increment(1),
+                    usedBy: firebase.firestore.FieldValue.arrayUnion(fingerprint),
+                    lastUsed: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                batch.set(codeRef, {
+                    code: normalizedCode,
+                    maxUses: codeInfo.maxUses,
+                    expiryDays: codeInfo.expiryDays,
+                    description: codeInfo.description,
+                    usedCount: 1,
+                    usedBy: [fingerprint],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastUsed: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            // Register the device
+            const deviceRef = db.collection('RegisteredDevices').doc(fingerprint);
+            batch.set(deviceRef, deviceInfo);
+            
+            // Add to registration history
+            const historyRef = db.collection('RegistrationHistory').doc();
+            batch.set(historyRef, {
+                fingerprint: fingerprint,
+                code: normalizedCode,
+                registeredAt: firebase.firestore.FieldValue.serverTimestamp(),
+                deviceInfo: deviceInfo
+            });
+            
+            await batch.commit();
+            
+            // Store in local storage
+            localStorage.setItem('device_registered', 'true');
+            localStorage.setItem('device_registration_code', normalizedCode);
+            localStorage.setItem('device_registration_date', new Date().toISOString());
+            
+            // Add to local registered devices list
+            const localDevices = JSON.parse(localStorage.getItem('registered_devices') || '[]');
+            if (!localDevices.includes(fingerprint)) {
+                localDevices.push(fingerprint);
+                localStorage.setItem('registered_devices', JSON.stringify(localDevices));
+            }
+            
+            return { 
+                success: true, 
+                message: 'Device registered successfully',
+                code: normalizedCode
+            };
+            
+        } catch (e) {
+            console.error('Error registering device:', e);
+            
+            // If offline, store registration locally
+            if (!navigator.onLine) {
+                localStorage.setItem('device_registered', 'true');
+                localStorage.setItem('device_registration_code', code);
+                localStorage.setItem('device_registration_date', new Date().toISOString());
+                localStorage.setItem('pending_registration', 'true');
+                
+                return { 
+                    success: true, 
+                    message: 'Device registered offline - will sync when online',
+                    offline: true
+                };
+            }
+            
+            return { success: false, message: 'Error registering device: ' + e.message };
+        }
+    }
+    
+    // Check and sync pending registrations
+    async function syncPendingRegistrations() {
+        const pending = localStorage.getItem('pending_registration');
+        if (pending === 'true' && navigator.onLine) {
+            const fingerprint = localStorage.getItem('device_fingerprint');
+            const code = localStorage.getItem('device_registration_code');
+            
+            if (fingerprint && code) {
+                const result = await registerDevice(code, fingerprint);
+                if (result.success) {
+                    localStorage.removeItem('pending_registration');
+                    console.log('Pending registration synced successfully');
+                }
+            }
+        }
+    }
+    
+    // ========== REGISTRATION UI ==========
+    
+    // Create registration overlay
+    function createRegistrationOverlay() {
+        const overlay = document.createElement('div');
+        overlay.id = 'registrationOverlay';
+        overlay.className = 'registration-overlay'; // For CSS styling
+        
+        const modal = document.createElement('div');
+        modal.className = 'registration-modal';
+        
+        modal.innerHTML = `
+            <div class="registration-header">
+                <span class="registration-icon">🔐</span>
+                <h1>Device Registration Required</h1>
+                <p>This device needs to be registered before accessing the CWAC Manager. Please enter a valid registration code provided by your administrator.</p>
+            </div>
+            
+            <div class="registration-body">
+                <input type="text" 
+                       id="registrationCode" 
+                       class="registration-input" 
+                       placeholder="Enter registration code"
+                       autocomplete="off">
+                
+                <div id="registrationMessage" class="registration-message"></div>
+                
+                <button id="registerBtn" class="registration-btn">
+                    Register Device
+                </button>
+            </div>
+            
+            <div class="registration-footer">
+                <p>⚠️ Each code can only be used on a limited number of devices.</p>
+                <p>Contact your administrator if you need a registration code.</p>
+            </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Add event listeners
+        const input = document.getElementById('registrationCode');
+        const registerBtn = document.getElementById('registerBtn');
+        const messageDiv = document.getElementById('registrationMessage');
+        
+        input.focus(); // Auto-focus the input
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                registerBtn.click();
+            }
+        });
+        
+        registerBtn.addEventListener('click', async () => {
+            const code = input.value.trim();
+            if (!code) {
+                showRegistrationMessage(messageDiv, 'Please enter a registration code', 'error');
+                return;
+            }
+            
+            registerBtn.disabled = true;
+            registerBtn.classList.add('loading');
+            registerBtn.textContent = 'Registering...';
+            
+            const fingerprint = await generateDeviceFingerprint();
+            const result = await registerDevice(code, fingerprint);
+            
+            if (result.success) {
+                showRegistrationMessage(messageDiv, result.message, 'success');
+                setTimeout(() => {
+                    overlay.classList.add('fade-out');
+                    setTimeout(() => {
+                        overlay.remove();
+                        checkDeviceRegistration(); // Re-check after registration
+                    }, 300);
+                }, 1500);
+            } else {
+                showRegistrationMessage(messageDiv, result.message, 'error');
+                registerBtn.disabled = false;
+                registerBtn.classList.remove('loading');
+                registerBtn.textContent = 'Register Device';
+                input.focus();
+            }
+        });
+    }
+    
+    function showRegistrationMessage(element, message, type) {
+        element.innerHTML = `<div class="registration-alert registration-alert-${type}">${type === 'success' ? '✅' : '❌'} ${message}</div>`;
+    }
+    
+    // ========== DEVICE REGISTRATION CHECK ==========
+    
+    // Main registration check
+    async function checkDeviceRegistration() {
+        // Check if already registered in this session
+        if (sessionStorage.getItem('device_verified') === 'true') {
+            return true;
+        }
+        
+        const fingerprint = await generateDeviceFingerprint();
+        
+        // Check local storage first
+        const locallyRegistered = localStorage.getItem('device_registered') === 'true';
+        
+        if (locallyRegistered) {
+            // Verify with cloud if online
+            if (navigator.onLine) {
+                const registered = await isDeviceRegistered(fingerprint);
+                if (registered) {
+                    sessionStorage.setItem('device_verified', 'true');
+                    await syncPendingRegistrations();
+                    return true;
+                } else {
+                    // Clear invalid local registration
+                    localStorage.removeItem('device_registered');
+                    localStorage.removeItem('device_registration_code');
+                    localStorage.removeItem('device_registration_date');
+                }
+            } else {
+                // Offline but locally registered - allow access
+                sessionStorage.setItem('device_verified', 'true');
+                return true;
+            }
+        }
+        
+        // Check if we're in admin bypass mode (for initial setup)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('bypass') === 'admin123') {
+            sessionStorage.setItem('device_verified', 'true');
+            localStorage.setItem('device_registered', 'true');
+            localStorage.setItem('device_registration_code', 'ADMIN_BYPASS');
+            showToast('Admin bypass mode activated', 'warning');
+            return true;
+        }
+        
+        // Check if this is first visit and we have a default code in URL
+        const codeParam = urlParams.get('code');
+        if (codeParam && REGISTRATION_CODES[codeParam.toUpperCase()]) {
+            // Try to auto-register with code from URL
+            const result = await registerDevice(codeParam, fingerprint);
+            if (result.success) {
+                sessionStorage.setItem('device_verified', 'true');
+                showToast('Device auto-registered successfully', 'success');
+                return true;
+            }
+        }
+        
+        // Not registered - show registration overlay
+        createRegistrationOverlay();
+        return false;
+    }
+    
+    // ========== ADMIN REGISTRATION MANAGEMENT ==========
+    
+    // View registered devices (admin only)
+    async function viewRegisteredDevices() {
+        if (userRole !== 'admin') {
+            showToast('Only administrators can view registered devices', 'error');
+            return;
+        }
+        
+        try {
+            showToast('Loading registration data...', 'info');
+            
+            const devicesSnapshot = await db.collection('RegisteredDevices').get();
+            const codesSnapshot = await db.collection('RegistrationCodes').get();
+            const historySnapshot = await db.collection('RegistrationHistory').orderBy('registeredAt', 'desc').limit(50).get();
+            
+            const devices = [];
+            devicesSnapshot.forEach(doc => {
+                devices.push({ id: doc.id, ...doc.data() });
+            });
+            
+            const codes = [];
+            codesSnapshot.forEach(doc => {
+                codes.push({ id: doc.id, ...doc.data() });
+            });
+            
+            const history = [];
+            historySnapshot.forEach(doc => {
+                history.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Create a modal display
+            const modal = document.createElement('div');
+            modal.className = 'admin-registration-modal';
+            modal.innerHTML = `
+                <div class="admin-registration-header">
+                    <h2>📊 Registration Management</h2>
+                    <button class="close-btn" onclick="this.closest('.admin-registration-modal').remove()">✕</button>
+                </div>
+                <div class="admin-registration-tabs">
+                    <button class="tab-btn active" data-tab="devices">Devices (${devices.length})</button>
+                    <button class="tab-btn" data-tab="codes">Codes (${codes.length})</button>
+                    <button class="tab-btn" data-tab="history">Recent History</button>
+                </div>
+                <div class="admin-registration-content">
+                    <div class="tab-pane active" id="devices-tab">
+                        <table class="registration-table">
+                            <thead>
+                                <tr>
+                                    <th>Fingerprint</th>
+                                    <th>Code</th>
+                                    <th>Platform</th>
+                                    <th>Registered</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${devices.map(d => `
+                                    <tr>
+                                        <td><small>${d.fingerprint.substring(0, 20)}...</small></td>
+                                        <td>${d.registrationCode || 'N/A'}</td>
+                                        <td>${d.platform || 'Unknown'}</td>
+                                        <td>${d.registeredAt ? new Date(d.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="tab-pane" id="codes-tab">
+                        <table class="registration-table">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Max Uses</th>
+                                    <th>Used</th>
+                                    <th>Expiry</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${codes.map(c => {
+                                    const createdAt = c.createdAt ? c.createdAt.toDate() : new Date();
+                                    const expiryDate = new Date(createdAt);
+                                    expiryDate.setDate(expiryDate.getDate() + (REGISTRATION_CODES[c.code]?.expiryDays || 30));
+                                    const isExpired = new Date() > expiryDate;
+                                    const isFull = c.usedCount >= c.maxUses;
+                                    
+                                    return `
+                                        <tr class="${isExpired ? 'expired' : isFull ? 'full' : 'active'}">
+                                            <td><strong>${c.code}</strong></td>
+                                            <td>${c.maxUses}</td>
+                                            <td>${c.usedCount || 0}</td>
+                                            <td>${expiryDate.toLocaleDateString()}</td>
+                                            <td>${isExpired ? '❌ Expired' : isFull ? '⚠️ Full' : '✅ Active'}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="tab-pane" id="history-tab">
+                        <table class="registration-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Code</th>
+                                    <th>Device</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${history.map(h => `
+                                    <tr>
+                                        <td>${h.registeredAt ? new Date(h.registeredAt.toDate()).toLocaleString() : 'Unknown'}</td>
+                                        <td>${h.code}</td>
+                                        <td><small>${h.fingerprint?.substring(0, 20)}...</small></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Add tab switching
+            modal.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    modal.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                    
+                    btn.classList.add('active');
+                    modal.querySelector(`#${btn.dataset.tab}-tab`).classList.add('active');
+                });
+            });
+            
+        } catch (e) {
+            console.error('Error viewing registrations:', e);
+            showToast('Error loading registrations: ' + e.message, 'error');
+        }
+    }
+    
+    // Add admin button to view registrations
+    function addAdminRegistrationButton() {
+        if (userRole !== 'admin') return;
+        
+        const btn = document.createElement('button');
+        btn.innerHTML = '🔐 Manage Registrations';
+        btn.className = 'admin-registration-btn';
+        btn.onclick = viewRegisteredDevices;
+        document.body.appendChild(btn);
+    }
+    
+    // ========== INTEGRATE WITH EXISTING USER ROLE SYSTEM ==========
+    
+    // Override user role check to include registration
+    let userRole = 'viewer';
+    
+    async function initializeWithRegistration() {
+        // First check device registration
+        const registered = await checkDeviceRegistration();
+        
+        if (!registered) {
+            return; // Registration overlay will handle it
+        }
+        
+        // Proceed with normal initialization
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('role') === 'admin') {
+            userRole = 'admin';
+        } else {
+            // Check if device has admin privileges from registration
+            const fingerprint = await generateDeviceFingerprint();
+            const registeredWithAdmin = localStorage.getItem('device_registration_code') === 'ADMIN2024';
+            
+            if (registeredWithAdmin) {
+                userRole = 'admin';
+            } else {
+                const access = prompt('Enter access code (leave blank for viewer mode):');
+                if (access === 'admin123') {
+                    userRole = 'admin';
+                } else {
+                    userRole = 'viewer';
+                    if (access !== null && access !== '') {
+                        showToast('Invalid code. Continuing in viewer mode.', 'warning');
+                    }
+                }
+            }
+        }
+        
+        console.log(`User role: ${userRole}`);
+        
+        // Role indicator
+        const roleIndicator = document.createElement('div');
+        roleIndicator.id = 'roleIndicator';
+        roleIndicator.className = userRole === 'admin' ? 'role-indicator admin' : 'role-indicator viewer';
+        roleIndicator.textContent = userRole === 'admin' ? '👑 ADMIN MODE' : '👁️ VIEWER MODE';
+        document.body.appendChild(roleIndicator);
+        
+        // Continue with normal initialization
+        completeInitialization();
+    }
+    
+    // Complete the rest of the initialization
+    function completeInitialization() {
+        // Set up online/offline sync for registrations
+        window.addEventListener('online', () => {
+            syncPendingRegistrations();
+        });
+        
+        // Apply role-based UI
+        applyRoleBasedUI();
+        
+        // Add admin registration button if admin
+        addAdminRegistrationButton();
+        
+        // Continue with existing initialization
+        DebugPanel.init();
+        addCreditLine();
+        addSyncButton();
+        initializeData();
+        
+        console.log('App initialization complete with Registration System');
+    }
+    
+    // ========== MODIFY EXISTING FUNCTIONS TO INCLUDE REGISTRATION ==========
+    
+    // Store original functions
+    const originalSaveDataToCloud = window.saveDataToCloud;
+    const originalLoadDataFromCloud = window.loadDataFromCloud;
+    
+    // Override save function
+    window.saveDataToCloud = async function() {
+        await syncPendingRegistrations();
+        if (typeof originalSaveDataToCloud === 'function') {
+            return originalSaveDataToCloud();
+        }
+    };
+    
+    // Override load function
+    window.loadDataFromCloud = async function() {
+        await syncPendingRegistrations();
+        if (typeof originalLoadDataFromCloud === 'function') {
+            return originalLoadDataFromCloud();
+        }
+    };
+    
+    // ========== START THE APPLICATION ==========
+    
+    // Override the get started button to check registration first
+    const getStartedBtn = document.getElementById('getStarted');
+    if (getStartedBtn) {
+        const originalClick = getStartedBtn.onclick;
+        getStartedBtn.onclick = async function(e) {
+            e.preventDefault();
+            const registered = await checkDeviceRegistration();
+            if (registered) {
+                const memberManagement = document.getElementById('memberManagement');
+                const header = document.querySelector('header');
+                if (memberManagement && header) {
+                    memberManagement.style.display = 'block';
+                    header.style.display = 'none';
+                    console.log('Get Started clicked - showing member management');
+                    
+                    setTimeout(() => {
+                        applyRoleBasedUI();
+                        showDataStats();
+                        addSearchToLists();
+                        initializeData();
+                    }, 100);
+                }
+            }
+        };
+    }
+    
+    // Start the initialization process
+    initializeWithRegistration();
     
     // ========== DRAGGABLE SYNC BUTTONS FUNCTIONALITY ==========
     
@@ -492,69 +1179,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ========== DELETE ALL FIREBASE DATA ==========
-async function deleteAllFirebaseData() {
-    if (!confirm('⚠️ This will permanently delete ALL data from Firebase! Continue?')) {
-        return;
-    }
-    
-    showToast('Deleting all data...', 'warning');
-    
-    try {
-        const collections = ['PaidMembers', 'UnpaidMembers', 'Status', 'EditCallNumber'];
-        
-        for (const collectionName of collections) {
-            const snapshot = await db.collection(collectionName).get();
-            const batch = db.batch();
-            
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
-            });
-            
-            await batch.commit();
-            console.log(`Deleted ${collectionName}`);
+    async function deleteAllFirebaseData() {
+        if (!confirm('⚠️ This will permanently delete ALL data from Firebase! Continue?')) {
+            return;
         }
         
-        // Clear local data too
-        paidData = {};
-        unpaidData = {};
-        statusData = {};
-        localStorage.clear();
+        showToast('Deleting all data...', 'warning');
         
-        showToast('All Firebase data deleted!', 'success');
-        
-        // Refresh the page
-        setTimeout(() => location.reload(), 1500);
-        
-    } catch (error) {
-        console.error('Delete error:', error);
-        showToast('Error deleting data: ' + error.message, 'error');
+        try {
+            const collections = ['PaidMembers', 'UnpaidMembers', 'Status', 'EditCallNumber', 'RegisteredDevices', 'RegistrationCodes', 'RegistrationHistory'];
+            
+            for (const collectionName of collections) {
+                const snapshot = await db.collection(collectionName).get();
+                const batch = db.batch();
+                
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                console.log(`Deleted ${collectionName}`);
+            }
+            
+            // Clear local data too
+            paidData = {};
+            unpaidData = {};
+            statusData = {};
+            localStorage.clear();
+            
+            showToast('All Firebase data deleted!', 'success');
+            
+            // Refresh the page
+            setTimeout(() => location.reload(), 1500);
+            
+        } catch (error) {
+            console.error('Delete error:', error);
+            showToast('Error deleting data: ' + error.message, 'error');
+        }
     }
-}
 
-// Add a delete button (optional)
-function addDeleteButton() {
-    const deleteBtn = document.createElement('button');
-    deleteBtn.innerHTML = '🗑️ Delete All Data';
-    deleteBtn.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: #f44336;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 30px;
-        font-weight: bold;
-        z-index: 10002;
-        box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
-    `;
-    deleteBtn.onclick = deleteAllFirebaseData;
-    document.body.appendChild(deleteBtn);
-}
-
-// Call this if you want the delete button
-// addDeleteButton();
-    
     // ========== LOCAL STORAGE FALLBACK ==========
     function saveDataToLocal() {
         try {
@@ -847,46 +1510,6 @@ function addDeleteButton() {
         }
     }
     
-    // ========== USER ROLE MANAGEMENT ==========
-    let userRole = 'viewer';
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('role') === 'admin') {
-        userRole = 'admin';
-    } else {
-        const access = prompt('Enter access code (leave blank for viewer mode):');
-        if (access === 'admin123') {
-            userRole = 'admin';
-        } else {
-            userRole = 'viewer';
-            if (access !== null && access !== '') {
-                showToast('Invalid code. Continuing in viewer mode.', 'warning');
-            }
-        }
-    }
-    
-    console.log(`User role: ${userRole}`);
-    
-    // Role indicator
-    const roleIndicator = document.createElement('div');
-    roleIndicator.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        padding: 8px 16px;
-        border-radius: 30px;
-        font-size: 13px;
-        font-weight: bold;
-        z-index: 10001;
-        background: ${userRole === 'admin' ? '#4caf50' : '#ff9800'};
-        color: white;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        backdrop-filter: blur(5px);
-        letter-spacing: 0.5px;
-    `;
-    roleIndicator.textContent = userRole === 'admin' ? '👑 ADMIN MODE' : '👁️ VIEWER MODE';
-    document.body.appendChild(roleIndicator);
-    
     // ========== UI CONTROL BASED ON ROLE ==========
     function applyRoleBasedUI() {
         if (userRole === 'viewer') {
@@ -994,25 +1617,8 @@ function addDeleteButton() {
     }
 
     // ========== GET STARTED BUTTON ==========
-    const getStartedBtn = document.getElementById('getStarted');
-    if (getStartedBtn) {
-        getStartedBtn.addEventListener('click', () => {
-            const memberManagement = document.getElementById('memberManagement');
-            const header = document.querySelector('header');
-            if (memberManagement && header) {
-                memberManagement.style.display = 'block';
-                header.style.display = 'none';
-                console.log('Get Started clicked - showing member management');
-                
-                setTimeout(() => {
-                    applyRoleBasedUI();
-                    showDataStats();
-                    addSearchToLists();
-                    initializeData();
-                }, 100);
-            }
-        });
-    }
+    // Note: This is already overridden above with registration check
+    // The original functionality is preserved in the new onclick handler
 
     // ========== RETURN TO LANDING PAGE ==========
     window.goToLandingPage = function() {
@@ -1552,74 +2158,74 @@ function addDeleteButton() {
     }
     
     function displayUnpaidMembers(area) {
-    const container = document.getElementById('membersContainer');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    let membersToShow = [];
-    
-    if (area === 'all') {
-        Object.keys(unpaidData).sort().forEach(cwacArea => {
-            unpaidData[cwacArea].forEach((member, index) => {
-                membersToShow.push({
-                    ...member,
-                    cwacArea,
-                    originalIndex: index,
-                    uniqueId: `${cwacArea}_${index}`
+        const container = document.getElementById('membersContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        let membersToShow = [];
+        
+        if (area === 'all') {
+            Object.keys(unpaidData).sort().forEach(cwacArea => {
+                unpaidData[cwacArea].forEach((member, index) => {
+                    membersToShow.push({
+                        ...member,
+                        cwacArea,
+                        originalIndex: index,
+                        uniqueId: `${cwacArea}_${index}`
+                    });
                 });
             });
-        });
-    } else {
-        if (unpaidData[area]) {
-            unpaidData[area].forEach((member, index) => {
-                membersToShow.push({
-                    ...member,
-                    cwacArea: area,
-                    originalIndex: index,
-                    uniqueId: `${area}_${index}`
+        } else {
+            if (unpaidData[area]) {
+                unpaidData[area].forEach((member, index) => {
+                    membersToShow.push({
+                        ...member,
+                        cwacArea: area,
+                        originalIndex: index,
+                        uniqueId: `${area}_${index}`
+                    });
                 });
-            });
+            }
         }
-    }
-    
-    if (membersToShow.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No members in this area</div>';
-        return;
-    }
-    
-    membersToShow.forEach((member) => {
-        const memberCard = document.createElement('div');
-        memberCard.className = 'member-card unpaid';
-        memberCard.id = `member_${member.uniqueId}`;
         
-        memberCard.innerHTML = `
-            <div class="member-header">
-                <span class="member-name">${member.name}</span>
-                <span class="member-badge badge-unpaid">UNPAID</span>
-            </div>
-            <div class="member-details">
-                <div><strong>ID:</strong> ${member.id}</div>
-                <div><strong>CWAC:</strong> ${member.cwacArea}</div>
-                <div><strong>Current Phone:</strong> <span class="phone-badge" id="currentPhone_${member.uniqueId}">📞 ${member.callNumber}</span></div>
-                <div style="grid-column: 1 / -1; margin-top: 5px;">
-                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Edit Phone Number:</label>
-                    <input type="text" 
-                           id="edit_${member.uniqueId}" 
-                           value="${member.callNumber}" 
-                           class="phone-input-field"
-                           placeholder="Enter 9-digit number"
-                           oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9).replace(/^0+/, '')">
-                    <button onclick="updateMemberPhone('${member.cwacArea}', ${member.originalIndex}, '${member.uniqueId}')" 
-                            class="update-phone-btn">Update Phone</button>
+        if (membersToShow.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No members in this area</div>';
+            return;
+        }
+        
+        membersToShow.forEach((member) => {
+            const memberCard = document.createElement('div');
+            memberCard.className = 'member-card unpaid';
+            memberCard.id = `member_${member.uniqueId}`;
+            
+            memberCard.innerHTML = `
+                <div class="member-header">
+                    <span class="member-name">${member.name}</span>
+                    <span class="member-badge badge-unpaid">UNPAID</span>
                 </div>
-            </div>
-            <div id="status_${member.uniqueId}" style="margin-top: 8px; font-size: 12px;"></div>
-        `;
-        
-        container.appendChild(memberCard);
-    });
-}
+                <div class="member-details">
+                    <div><strong>ID:</strong> ${member.id}</div>
+                    <div><strong>CWAC:</strong> ${member.cwacArea}</div>
+                    <div><strong>Current Phone:</strong> <span class="phone-badge" id="currentPhone_${member.uniqueId}">📞 ${member.callNumber}</span></div>
+                    <div style="grid-column: 1 / -1; margin-top: 5px;">
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Edit Phone Number:</label>
+                        <input type="text" 
+                               id="edit_${member.uniqueId}" 
+                               value="${member.callNumber}" 
+                               class="phone-input-field"
+                               placeholder="Enter 9-digit number"
+                               oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9).replace(/^0+/, '')">
+                        <button onclick="updateMemberPhone('${member.cwacArea}', ${member.originalIndex}, '${member.uniqueId}')" 
+                                class="update-phone-btn">Update Phone</button>
+                    </div>
+                </div>
+                <div id="status_${member.uniqueId}" style="margin-top: 8px; font-size: 12px;"></div>
+            `;
+            
+            container.appendChild(memberCard);
+        });
+    }
 
     // UPDATED: Phone update function with cloud sync
     window.updateMemberPhone = async function(area, memberIndex, uniqueId) {
@@ -2406,13 +3012,4 @@ function addDeleteButton() {
             exportCSV(unpaidData, `unpaid_members_${new Date().toISOString().slice(0,10)}.csv`);
         });
     }
-
-    // ========== INITIALIZATION ==========
-    DebugPanel.init();
-    applyRoleBasedUI();
-    addCreditLine();
-    addSyncButton(); // This now includes the draggable functionality
-    initializeData();
-    
-    console.log('App initialization complete with Firebase Cloud Syncing and Draggable Sync Buttons');
 });
