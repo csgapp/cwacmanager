@@ -829,8 +829,8 @@ async function validateRegistrationCode(code, fingerprint) {
         }
     };
     
-    // Generate multiple codes at once - FIXED VERSION
-    window.generateMultipleCodes = async function() {
+    // Generate multiple codes at once - WITH FIXED DOWNLOAD BUTTON
+window.generateMultipleCodes = async function() {
     const count = 5;
     const description = document.getElementById('codeDescription').value || 'Bulk registration';
     const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
@@ -838,16 +838,18 @@ async function validateRegistrationCode(code, fingerprint) {
     const codeType = document.getElementById('codeType').value;
     
     try {
+        showToast('Generating codes...', 'info');
+        
         const batch = db.batch();
         const codes = [];
+        const timestamp = firebase.firestore.FieldValue.serverTimestamp();
         
         for (let i = 0; i < count; i++) {
             const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
             const random = Math.random().toString(36).substring(2, 8).toUpperCase();
             const code = `${prefix}-${random}`;
             
-            const codeRef = db.collection('RegistrationCodes').doc(code);
-            batch.set(codeRef, {
+            const codeData = {
                 code: code,
                 description: `${description} #${i+1}`,
                 maxUses: maxUses,
@@ -855,35 +857,65 @@ async function validateRegistrationCode(code, fingerprint) {
                 codeType: codeType,
                 usedCount: 0,
                 usedBy: [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAt: timestamp,
                 createdBy: userRole
-            });
+            };
+            
+            const codeRef = db.collection('RegistrationCodes').doc(code);
+            batch.set(codeRef, codeData);
             
             codes.push(code);
         }
         
         await batch.commit();
+        console.log('Generated codes:', codes);
         
         // Show results with working download button
         const resultDiv = document.getElementById('generationResult');
-        resultDiv.innerHTML = `
-            <div class="success-message">
-                ✅ Generated ${count} codes:
-                <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
-                    ${codes.map(code => `
-                        <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 4px;">
-                            <code style="flex: 1; font-family: monospace;">${code}</code>
-                            <button class="copy-btn-small" onclick="copyToClipboard('${code}')">Copy</button>
-                        </div>
-                    `).join('')}
+        if (resultDiv) {
+            // Create a unique ID for the download button
+            const downloadId = 'downloadBtn_' + Date.now();
+            
+            resultDiv.innerHTML = `
+                <div class="success-message" style="background: #d4edda; color: #155724; padding: 20px; border-radius: 10px;">
+                    <div style="font-size: 20px; margin-bottom: 15px;">✅ Generated ${count} Codes Successfully!</div>
+                    
+                    <div style="margin: 20px 0; max-height: 250px; overflow-y: auto; border: 1px solid #c3e6cb; border-radius: 8px; padding: 10px;">
+                        ${codes.map(code => `
+                            <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #c3e6cb;">
+                                <code style="flex: 1; font-family: monospace; font-size: 14px; color: #0d3c1c;">${code}</code>
+                                <button onclick="copyToClipboard('${code}')" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    Copy
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                        <button id="${downloadId}" style="background: var(--success-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                            📥 Download ${codes.length} Codes as CSV
+                        </button>
+                        <button onclick="this.closest('.success-message').parentElement.innerHTML = ''" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            Close
+                        </button>
+                    </div>
                 </div>
-                <button onclick="downloadCodesAsCSV(${JSON.stringify(codes)})" style="margin-top: 15px; padding: 8px 16px; background: var(--success-color); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    📥 Download ${codes.length} Codes as CSV
-                </button>
-            </div>
-        `;
+            `;
+            
+            // Add event listener to the download button
+            document.getElementById(downloadId).addEventListener('click', function() {
+                downloadCodesAsCSV(codes);
+            });
+        }
         
         showToast(`Generated ${count} codes successfully!`, 'success');
+        
+        // Refresh the dashboard to show new codes
+        setTimeout(() => {
+            if (typeof showRegistrationDashboard === 'function') {
+                showRegistrationDashboard();
+            }
+        }, 2000);
         
     } catch (e) {
         console.error('Error generating multiple codes:', e);
