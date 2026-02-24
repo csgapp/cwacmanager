@@ -829,8 +829,8 @@ async function validateRegistrationCode(code, fingerprint) {
         }
     };
     
-    // Generate multiple codes at once - WITH FIXED DOWNLOAD BUTTON
-window.generateMultipleCodes = async function() {
+    // Generate multiple codes at once - WITH FIXED COPY BUTTON
+    window.generateMultipleCodes = async function() {
     const count = 5;
     const description = document.getElementById('codeDescription').value || 'Bulk registration';
     const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
@@ -870,10 +870,9 @@ window.generateMultipleCodes = async function() {
         await batch.commit();
         console.log('Generated codes:', codes);
         
-        // Show results with working download button
+        // Show results with working buttons
         const resultDiv = document.getElementById('generationResult');
         if (resultDiv) {
-            // Create a unique ID for the download button
             const downloadId = 'downloadBtn_' + Date.now();
             
             resultDiv.innerHTML = `
@@ -884,7 +883,7 @@ window.generateMultipleCodes = async function() {
                         ${codes.map(code => `
                             <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #c3e6cb;">
                                 <code style="flex: 1; font-family: monospace; font-size: 14px; color: #0d3c1c;">${code}</code>
-                                <button onclick="copyToClipboard('${code}')" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <button class="copy-code-btn" data-code="${code}" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
                                     Copy
                                 </button>
                             </div>
@@ -902,7 +901,15 @@ window.generateMultipleCodes = async function() {
                 </div>
             `;
             
-            // Add event listener to the download button
+            // Add event listeners to all copy buttons
+            document.querySelectorAll('.copy-code-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const code = this.getAttribute('data-code');
+                    copyToClipboard(code);
+                });
+            });
+            
+            // Add event listener to download button
             document.getElementById(downloadId).addEventListener('click', function() {
                 downloadCodesAsCSV(codes);
             });
@@ -1021,98 +1028,50 @@ window.generateMultipleCodes = async function() {
     }
 };
 
-    // Also fix the generateMultipleCodes function to ensure CSV download works
-    window.generateMultipleCodes = async function() {
-    const count = 5;
-    const description = document.getElementById('codeDescription').value || 'Bulk registration';
-    const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
-    const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
-    const codeType = document.getElementById('codeType').value;
+   
+
+   // ========== COPY TO CLIPBOARD HELPER ==========
+    window.copyToClipboard = function(text) {
+    if (!text) {
+        showToast('Nothing to copy', 'warning');
+        return;
+    }
     
-    try {
-        showToast('Generating codes...', 'info');
-        
-        const batch = db.batch();
-        const codes = [];
-        const timestamp = firebase.firestore.FieldValue.serverTimestamp();
-        
-        for (let i = 0; i < count; i++) {
-            const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
-            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const code = `${prefix}-${random}`;
-            
-            const codeData = {
-                code: code,
-                description: `${description} #${i+1}`,
-                maxUses: maxUses,
-                expiryDays: expiryDays,
-                codeType: codeType,
-                usedCount: 0,
-                usedBy: [],
-                createdAt: timestamp,
-                createdBy: userRole
-            };
-            
-            const codeRef = db.collection('RegistrationCodes').doc(code);
-            batch.set(codeRef, codeData);
-            
-            codes.push(code);
-        }
-        
-        await batch.commit();
-        console.log('Generated codes:', codes);
-        
-        // Show results with working download button
-        const resultDiv = document.getElementById('generationResult');
-        if (resultDiv) {
-            // Create a string representation of the codes array for the onclick
-            const codesString = JSON.stringify(codes);
-            
-            resultDiv.innerHTML = `
-                <div class="success-message" style="background: #d4edda; color: #155724; padding: 20px; border-radius: 10px;">
-                    <div style="font-size: 20px; margin-bottom: 15px;">✅ Generated ${count} Codes Successfully!</div>
-                    
-                    <div style="margin: 20px 0; max-height: 250px; overflow-y: auto; border: 1px solid #c3e6cb; border-radius: 8px; padding: 10px;">
-                        ${codes.map(code => `
-                            <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #c3e6cb;">
-                                <code style="flex: 1; font-family: monospace; font-size: 14px; color: #0d3c1c;">${code}</code>
-                                <button onclick="copyToClipboard('${code}')" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    Copy
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                        <button onclick="downloadCodesAsCSV(${codesString})" style="background: var(--success-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">
-                            📥 Download ${codes.length} Codes as CSV
-                        </button>
-                        <button onclick="this.closest('.success-message').parentElement.innerHTML = ''" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-        
-        showToast(`Generated ${count} codes successfully!`, 'success');
-        
-        // Refresh the dashboard to show new codes
-        setTimeout(() => {
-            if (typeof showRegistrationDashboard === 'function') {
-                showRegistrationDashboard();
-            }
-        }, 2000);
-        
-    } catch (e) {
-        console.error('Error generating multiple codes:', e);
-        showToast('Error generating codes: ' + e.message, 'error');
+    // Use modern clipboard API if available
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`✅ Copied: ${text}`, 'success');
+        }).catch(err => {
+            console.error('Clipboard error:', err);
+            fallbackCopyToClipboard(text);
+        });
+    } else {
+        fallbackCopyToClipboard(text);
     }
 };
 
-// ========== FIXED DELETE REGISTRATION CODE ==========
+   // Fallback for older browsers
+    function fallbackCopyToClipboard(text) {
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(`✅ Copied: ${text}`, 'success');
+    } catch (err) {
+        console.error('Fallback clipboard error:', err);
+        showToast('❌ Could not copy to clipboard', 'error');
+    }
+}
 
-// Delete a registration code - FIXED VERSION
+    // ========== FIXED DELETE REGISTRATION CODE ==========
+
+   // Delete a registration code - FIXED VERSION
     window.deleteRegistrationCode = async function(code) {
     if (!code) {
         showToast('No code specified', 'error');
