@@ -8,52 +8,95 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Landing Section -->
+  <!-- Landing Section with Family Icon -->
   <header>
-    <h1>Cwac Manager</h1>
+    <!-- ADDED: Family icon next to the title -->
+    <div class="header-with-icon">
+      <img src="assets/icons/family-icon.svg" alt="Family" class="header-icon" width="48" height="48">
+      <h1>Cwac Manager</h1>
+    </div>
     <p>The complete solution for managing your clients</p>
-    <button id="getStarted">Get Started</button>
+    <!-- ADDED: Small family icon next to button for visual appeal -->
+    <div class="cta-container">
+      <button id="getStarted" class="cta-button">
+        <img src="assets/icons/family-icon.svg" alt="" class="button-icon" width="20" height="20">
+        Get Started
+      </button>
+    </div>
+    <!-- ADDED: Decorative family icons in the background/landing area -->
+    <div class="landing-decoration">
+      <img src="assets/icons/family-icon.svg" class="decoration-icon icon-1" width="40" height="40">
+      <img src="assets/icons/family-icon.svg" class="decoration-icon icon-2" width="60" height="60">
+      <img src="assets/icons/family-icon.svg" class="decoration-icon icon-3" width="30" height="30">
+    </div>
   </header>
 
   <!-- Member Management Section -->
   <main id="memberManagement" style="display:none;">
+    <!-- ADDED: Family icon in the navigation area -->
     <nav>
-      <button class="tabBtn" data-tab="paid">Paid Members by Cwac Area</button>
-      <button class="tabBtn" data-tab="unpaid">Unpaid Members by Cwac Area</button>
-      <button class="tabBtn" data-tab="edit">Edit Call Number</button>
-      <button class="tabBtn" data-tab="status">Status</button>
-      <button class="tabBtn" data-tab="importExport">Import/Export</button>
+      <div class="nav-header">
+        <img src="assets/icons/family-icon.svg" class="nav-icon" width="28" height="28">
+        <span>Member Management</span>
+      </div>
+      <div class="nav-buttons">
+        <button class="tabBtn" data-tab="paid">Paid Members by Cwac Area</button>
+        <button class="tabBtn" data-tab="unpaid">Unpaid Members by Cwac Area</button>
+        <button class="tabBtn" data-tab="edit">Edit Call Number</button>
+        <button class="tabBtn" data-tab="status">Status</button>
+        <button class="tabBtn" data-tab="importExport">Import/Export</button>
+      </div>
     </nav>
 
     <!-- Paid Members -->
     <section id="paid" class="tabContent" style="display:none;">
-      <h2>Paid Members by Cwac Area</h2>
+      <!-- ADDED: Icon next to section title -->
+      <h2>
+        <img src="assets/icons/family-icon.svg" class="section-icon" width="24" height="24">
+        Paid Members by Cwac Area
+      </h2>
       <ul id="paidCwacList"></ul>
       <div id="paidMembers"></div>
     </section>
 
     <!-- Unpaid Members -->
     <section id="unpaid" class="tabContent" style="display:none;">
-      <h2>Unpaid Members by Cwac Area</h2>
+      <!-- ADDED: Icon next to section title -->
+      <h2>
+        <img src="assets/icons/family-icon.svg" class="section-icon" width="24" height="24">
+        Unpaid Members by Cwac Area
+      </h2>
       <ul id="unpaidCwacList"></ul>
       <div id="unpaidMembers"></div>
     </section>
 
     <!-- Edit Call Number -->
     <section id="edit" class="tabContent" style="display:none;">
-      <h2>Edit Call Number</h2>
+      <!-- ADDED: Icon next to section title -->
+      <h2>
+        <img src="assets/icons/family-icon.svg" class="section-icon" width="24" height="24">
+        Edit Call Number
+      </h2>
       <label for="callNumber">Enter Call Number:</label>
       <input type="text" id="callNumber" maxlength="9">
     </section>
 
     <!-- Status Tab -->
     <section id="status" class="tabContent" style="display:none;">
-      <h2>Member Status Management</h2>
+      <!-- ADDED: Icon next to section title -->
+      <h2>
+        <img src="assets/icons/family-icon.svg" class="section-icon" width="24" height="24">
+        Member Status Management
+      </h2>
     </section>
 
     <!-- Import/Export -->
     <section id="importExport" class="tabContent" style="display:none;">
-      <h2>Import / Export Members</h2>
+      <!-- ADDED: Icon next to section title -->
+      <h2>
+        <img src="assets/icons/family-icon.svg" class="section-icon" width="24" height="24">
+        Import / Export Members
+      </h2>
       <label for="csvFile">Upload CSV File:</label>
       <input type="file" id="csvFile" accept=".csv">
       <button id="importBtn">Import CSV</button>

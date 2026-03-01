@@ -1755,3 +1755,32 @@ button:disabled {
         color: #a3e0a3;
     }
 }
+
+/* Add at the bottom of your styles file */
+.family-icon {
+  width: 32px;
+  height: 32px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+/* If you want different sizes */
+.family-icon-small {
+  width: 24px;
+  height: 24px;
+}
+
+.family-icon-large {
+  width: 48px;
+  height: 48px;
+}
+
+/* For clickable icons */
+.family-icon-clickable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.family-icon-clickable:hover {
+  opacity: 0.8;
+}
