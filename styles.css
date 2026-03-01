@@ -1768,15 +1768,14 @@ button:disabled {
 }
 
 .header-icon {
-    width: 60px;
-    height: 60px;
-    filter: brightness(0) invert(1); /* Makes icon white to stand out on purple */
+    width: 70px;  /* Increase from 60px */
+    height: 70px; /* Increase from 60px */
+    filter: brightness(0) invert(1);
     background: rgba(255, 255, 255, 0.2);
-    padding: 8px;
+    padding: 10px; /* Increase from 8px */
     border-radius: 50%;
     object-fit: contain;
 }
-
 /* CTA Button with icon */
 .cta-container {
     display: flex;
