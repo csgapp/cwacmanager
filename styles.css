@@ -1756,31 +1756,198 @@ button:disabled {
     }
 }
 
-/* Add at the bottom of your styles file */
-.family-icon {
-  width: 32px;
-  height: 32px;
-  vertical-align: middle;
-  margin-right: 8px;
+//* ========== FAMILY ICON STYLES - COMPREHENSIVE ========== */
+/* Header with icon */
+.header-with-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    width: 100%;
 }
 
-/* If you want different sizes */
+.header-icon {
+    width: 60px;
+    height: 60px;
+    filter: brightness(0) invert(1); /* Makes icon white to stand out on purple */
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px;
+    border-radius: 50%;
+    object-fit: contain;
+}
+
+/* CTA Button with icon */
+.cta-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 1.2rem 3.5rem;
+    font-size: clamp(1rem, 5vw, 1.3rem);
+    background-color: white;
+    color: var(--primary-color);
+    border: none;
+    border-radius: 60px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.button-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* Decorative icons on landing page */
+.landing-decoration {
+    position: relative;
+    height: 100px;
+    margin-top: 30px;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    opacity: 0.3;
+}
+
+.decoration-icon {
+    width: 40px;
+    height: 40px;
+    animation: float 3s ease-in-out infinite;
+    object-fit: contain;
+}
+
+.icon-1 { animation-delay: 0s; }
+.icon-2 { width: 60px; height: 60px; animation-delay: 0.5s; }
+.icon-3 { width: 30px; height: 30px; animation-delay: 1s; }
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* Navigation icon */
+.nav-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border-radius: 10px 10px 0 0;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.nav-icon {
+    width: 32px;
+    height: 32px;
+    filter: brightness(0) invert(1);
+    object-fit: contain;
+}
+
+/* Section icons */
+.section-icon {
+    width: 28px;
+    height: 28px;
+    vertical-align: middle;
+    margin-right: 10px;
+    object-fit: contain;
+}
+
+/* Keep your existing family icon classes but enhance them */
+.family-icon {
+    width: 32px;
+    height: 32px;
+    vertical-align: middle;
+    margin-right: 8px;
+    object-fit: contain;
+}
+
 .family-icon-small {
-  width: 24px;
-  height: 24px;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
 }
 
 .family-icon-large {
-  width: 48px;
-  height: 48px;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
 }
 
-/* For clickable icons */
 .family-icon-clickable {
-  cursor: pointer;
-  transition: opacity 0.2s;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    object-fit: contain;
 }
 
 .family-icon-clickable:hover {
-  opacity: 0.8;
+    opacity: 0.8;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .header-icon {
+        width: 45px;
+        height: 45px;
+        padding: 6px;
+    }
+    
+    .button-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .decoration-icon {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .icon-2 {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .icon-3 {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .nav-icon {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .section-icon {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .header-icon {
+        background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .nav-header {
+        background: linear-gradient(135deg, #2d6a4f 0%, #1b5e3f 100%);
+    }
+    
+    .decoration-icon {
+        opacity: 0.5;
+    }
 }
