@@ -1756,7 +1756,8 @@ button:disabled {
     }
 }
 
-//* ========== FAMILY ICON STYLES - COMPREHENSIVE ========== */
+/* ========== FAMILY ICON STYLES ========== */
+
 /* Header with icon */
 .header-with-icon {
     display: flex;
@@ -1768,14 +1769,19 @@ button:disabled {
 }
 
 .header-icon {
-    width: 70px;  /* Increase from 60px */
-    height: 70px; /* Increase from 60px */
+    width: 80px;
+    height: 80px;
     filter: brightness(0) invert(1);
     background: rgba(255, 255, 255, 0.2);
-    padding: 10px; /* Increase from 8px */
+    padding: 15px;
     border-radius: 50%;
+    margin-bottom: 20px;
+    display: block;
+    visibility: visible;
+    opacity: 1;
     object-fit: contain;
 }
+
 /* CTA Button with icon */
 .cta-container {
     display: flex;
@@ -1806,6 +1812,9 @@ button:disabled {
 .button-icon {
     width: 24px;
     height: 24px;
+    filter: brightness(0) invert(1);
+    margin-right: 8px;
+    display: inline-block;
     object-fit: contain;
 }
 
@@ -1824,6 +1833,8 @@ button:disabled {
 .decoration-icon {
     width: 40px;
     height: 40px;
+    filter: brightness(0) invert(1);
+    opacity: 0.3;
     animation: float 3s ease-in-out infinite;
     object-fit: contain;
 }
@@ -1866,7 +1877,7 @@ button:disabled {
     object-fit: contain;
 }
 
-/* Keep your existing family icon classes but enhance them */
+/* General family icon classes */
 .family-icon {
     width: 32px;
     height: 32px;
@@ -1900,9 +1911,9 @@ button:disabled {
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .header-icon {
-        width: 45px;
-        height: 45px;
-        padding: 6px;
+        width: 60px;
+        height: 60px;
+        padding: 12px;
     }
     
     .button-icon {
