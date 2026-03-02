@@ -1756,7 +1756,7 @@ button:disabled {
     }
 }
 
-/* ========== FAMILY ICON STYLES ========== */
+/* ========== FAMILY ICON STYLES - WITH COLORS ========== */
 
 /* Header with icon */
 .header-with-icon {
@@ -1769,16 +1769,17 @@ button:disabled {
 }
 
 .header-icon {
-    width: 80px;
-    height: 80px;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 15px;
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.25);
+    padding: 12px;
     border-radius: 50%;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     display: block;
     visibility: visible;
     opacity: 1;
     object-fit: contain;
+    /* NO filter here - keeps original colors */
 }
 
 /* CTA Button with icon */
@@ -1814,6 +1815,7 @@ button:disabled {
     margin-right: 8px;
     display: inline-block;
     object-fit: contain;
+    /* NO filter - keeps orange/green/black */
 }
 
 /* Decorative icons on landing page */
@@ -1825,13 +1827,12 @@ button:disabled {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    opacity: 0.3;
+    opacity: 0.25;
 }
 
 .decoration-icon {
     width: 40px;
     height: 40px;
-    opacity: 0.5;
     animation: float 3s ease-in-out infinite;
     object-fit: contain;
 }
@@ -1862,6 +1863,7 @@ button:disabled {
     width: 32px;
     height: 32px;
     object-fit: contain;
+    /* Keep original colors */
 }
 
 /* Section icons */
@@ -1876,9 +1878,9 @@ button:disabled {
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .header-icon {
-        width: 60px;
-        height: 60px;
-        padding: 12px;
+        width: 50px;
+        height: 50px;
+        padding: 10px;
     }
     
     .button-icon {
@@ -1909,20 +1911,5 @@ button:disabled {
     .section-icon {
         width: 24px;
         height: 24px;
-    }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .header-icon {
-        background: rgba(255, 255, 255, 0.15);
-    }
-    
-    .nav-header {
-        background: linear-gradient(135deg, #2d6a4f 0%, #1b5e3f 100%);
-    }
-    
-    .decoration-icon {
-        opacity: 0.5;
     }
 }
