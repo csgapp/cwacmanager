@@ -1913,3 +1913,76 @@ button:disabled {
         height: 24px;
     }
 }
+
+/* Your existing button styles */
+button {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background: #ccc;
+}
+
+/* Export Sections */
+.export-section {
+    background: var(--light-bg);
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 1px dashed var(--border-color);
+    border-color: var(--success-color);
+}
+
+.export-section h3 {
+    color: #000000 !important;
+}
+
+.export-section p {
+    color: #333333 !important;
+}
+
+/* 👇👇👇 ADD OPTION 3 HERE 👇👇👇 */
+/* Mobile touch improvements */
+button, 
+.copy-code-btn,
+[onclick] {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+}
+
+/* Ensure buttons are big enough for fat fingers */
+@media (max-width: 768px) {
+    button,
+    .copy-code-btn,
+    .action-btn,
+    .generate-btn,
+    .refresh-btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 12px 20px !important;
+        margin: 5px 0;
+    }
+    
+    /* Make table action buttons easier to tap */
+    .action-btn {
+        padding: 10px 15px !important;
+        font-size: 18px !important;
+    }
+}
