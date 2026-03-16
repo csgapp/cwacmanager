@@ -1,5 +1,6 @@
 // app.js - Complete Enhanced Version with Firebase Cloud Syncing, Draggable Sync Buttons,
 // Registration Code System with Device Fingerprinting, and Admin Registration Dashboard
+// FIXED: Field staff can now load data without permission errors
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -121,102 +122,102 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========== FIXED REGISTRATION CODE VALIDATION ==========
 
-// Validate registration code - FIXED VERSION
-async function validateRegistrationCode(code, fingerprint) {
-    const normalizedCode = code.trim().toUpperCase();
-    console.log('Validating code:', normalizedCode); // Debug log
-    
-    // First check if it's one of the hardcoded admin codes (for testing)
-    if (normalizedCode === 'ADMIN2024' || normalizedCode === 'CWAC2024' || normalizedCode === 'FIELD2024') {
-        console.log('Using hardcoded code:', normalizedCode);
-        const codeInfo = {
-            'ADMIN2024': { maxUses: 5, expiryDays: 90, description: 'Admin override code' },
-            'CWAC2024': { maxUses: 100, expiryDays: 30, description: 'Main registration code' },
-            'FIELD2024': { maxUses: 50, expiryDays: 60, description: 'Field staff code' }
-        }[normalizedCode];
+    // Validate registration code - FIXED VERSION
+    async function validateRegistrationCode(code, fingerprint) {
+        const normalizedCode = code.trim().toUpperCase();
+        console.log('Validating code:', normalizedCode); // Debug log
         
-        return { valid: true, codeInfo, existingData: null, isHardcoded: true };
-    }
-    
-    try {
-        // IMPORTANT FIX: Try to get the code by document ID first
-        let codeDoc = await db.collection('RegistrationCodes').doc(normalizedCode).get();
-        
-        // If not found by ID, try querying where code field equals the value
-        if (!codeDoc.exists) {
-            console.log('Code not found by ID, trying query...');
-            const querySnapshot = await db.collection('RegistrationCodes')
-                .where('code', '==', normalizedCode)
-                .limit(1)
-                .get();
+        // First check if it's one of the hardcoded admin codes (for testing)
+        if (normalizedCode === 'ADMIN2024' || normalizedCode === 'CWAC2024' || normalizedCode === 'FIELD2024') {
+            console.log('Using hardcoded code:', normalizedCode);
+            const codeInfo = {
+                'ADMIN2024': { maxUses: 5, expiryDays: 90, description: 'Admin override code' },
+                'CWAC2024': { maxUses: 100, expiryDays: 30, description: 'Main registration code' },
+                'FIELD2024': { maxUses: 50, expiryDays: 60, description: 'Field staff code' }
+            }[normalizedCode];
             
-            if (!querySnapshot.empty) {
-                codeDoc = querySnapshot.docs[0];
-                console.log('Found code by query:', codeDoc.id, codeDoc.data());
-            }
+            return { valid: true, codeInfo, existingData: null, isHardcoded: true };
         }
         
-        if (codeDoc.exists) {
-            const data = codeDoc.data();
-            console.log('Code found in Firebase:', data);
+        try {
+            // IMPORTANT FIX: Try to get the code by document ID first
+            let codeDoc = await db.collection('RegistrationCodes').doc(normalizedCode).get();
             
-            // Get the actual code value (use document ID or code field)
-            const actualCode = data.code || codeDoc.id;
+            // If not found by ID, try querying where code field equals the value
+            if (!codeDoc.exists) {
+                console.log('Code not found by ID, trying query...');
+                const querySnapshot = await db.collection('RegistrationCodes')
+                    .where('code', '==', normalizedCode)
+                    .limit(1)
+                    .get();
+                
+                if (!querySnapshot.empty) {
+                    codeDoc = querySnapshot.docs[0];
+                    console.log('Found code by query:', codeDoc.id, codeDoc.data());
+                }
+            }
             
-            // Check expiry
-            let createdAt;
-            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-                createdAt = data.createdAt.toDate();
-            } else if (data.createdAt) {
-                createdAt = new Date(data.createdAt);
+            if (codeDoc.exists) {
+                const data = codeDoc.data();
+                console.log('Code found in Firebase:', data);
+                
+                // Get the actual code value (use document ID or code field)
+                const actualCode = data.code || codeDoc.id;
+                
+                // Check expiry
+                let createdAt;
+                if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                    createdAt = data.createdAt.toDate();
+                } else if (data.createdAt) {
+                    createdAt = new Date(data.createdAt);
+                } else {
+                    createdAt = new Date();
+                }
+                
+                const expiryDays = data.expiryDays || 30;
+                const expiryDate = new Date(createdAt);
+                expiryDate.setDate(expiryDate.getDate() + expiryDays);
+                
+                console.log('Expiry check:', { createdAt, expiryDate, now: new Date() });
+                
+                if (new Date() > expiryDate) {
+                    return { valid: false, message: 'Registration code has expired' };
+                }
+                
+                // Check max uses
+                const maxUses = data.maxUses || 50;
+                const usedCount = data.usedCount || 0;
+                
+                if (usedCount >= maxUses) {
+                    return { valid: false, message: 'Registration code has reached maximum uses' };
+                }
+                
+                // Check if this device already used this code
+                const usedBy = data.usedBy || [];
+                if (usedBy.includes(fingerprint)) {
+                    return { valid: true, message: 'Device already registered with this code' };
+                }
+                
+                return { 
+                    valid: true, 
+                    codeInfo: {
+                        ...data,
+                        code: actualCode,
+                        maxUses: maxUses,
+                        expiryDays: expiryDays
+                    }, 
+                    existingData: data,
+                    docId: codeDoc.id
+                };
             } else {
-                createdAt = new Date();
+                console.log('Code not found in Firebase:', normalizedCode);
+                return { valid: false, message: 'Invalid registration code - not found in database' };
             }
-            
-            const expiryDays = data.expiryDays || 30;
-            const expiryDate = new Date(createdAt);
-            expiryDate.setDate(expiryDate.getDate() + expiryDays);
-            
-            console.log('Expiry check:', { createdAt, expiryDate, now: new Date() });
-            
-            if (new Date() > expiryDate) {
-                return { valid: false, message: 'Registration code has expired' };
-            }
-            
-            // Check max uses
-            const maxUses = data.maxUses || 50;
-            const usedCount = data.usedCount || 0;
-            
-            if (usedCount >= maxUses) {
-                return { valid: false, message: 'Registration code has reached maximum uses' };
-            }
-            
-            // Check if this device already used this code
-            const usedBy = data.usedBy || [];
-            if (usedBy.includes(fingerprint)) {
-                return { valid: true, message: 'Device already registered with this code' };
-            }
-            
-            return { 
-                valid: true, 
-                codeInfo: {
-                    ...data,
-                    code: actualCode,
-                    maxUses: maxUses,
-                    expiryDays: expiryDays
-                }, 
-                existingData: data,
-                docId: codeDoc.id
-            };
-        } else {
-            console.log('Code not found in Firebase:', normalizedCode);
-            return { valid: false, message: 'Invalid registration code - not found in database' };
+        } catch (e) {
+            console.error('Error validating code:', e);
+            return { valid: false, message: 'Error validating code: ' + e.message };
         }
-    } catch (e) {
-        console.error('Error validating code:', e);
-        return { valid: false, message: 'Error validating code: ' + e.message };
     }
-}
     
     // Register device with code
     async function registerDevice(code, fingerprint) {
@@ -829,106 +830,106 @@ async function validateRegistrationCode(code, fingerprint) {
         }
     };
     
-    // Generate multiple codes at once - WITH FIXED COPY BUTTON
+    // Generate multiple codes at once
     window.generateMultipleCodes = async function() {
-    const count = 5;
-    const description = document.getElementById('codeDescription').value || 'Bulk registration';
-    const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
-    const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
-    const codeType = document.getElementById('codeType').value;
-    
-    try {
-        showToast('Generating codes...', 'info');
+        const count = 5;
+        const description = document.getElementById('codeDescription').value || 'Bulk registration';
+        const maxUses = parseInt(document.getElementById('maxUses').value) || 50;
+        const expiryDays = parseInt(document.getElementById('expiryDays').value) || 30;
+        const codeType = document.getElementById('codeType').value;
         
-        const batch = db.batch();
-        const codes = [];
-        const timestamp = firebase.firestore.FieldValue.serverTimestamp();
-        
-        for (let i = 0; i < count; i++) {
-            const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
-            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const code = `${prefix}-${random}`;
+        try {
+            showToast('Generating codes...', 'info');
             
-            const codeData = {
-                code: code,
-                description: `${description} #${i+1}`,
-                maxUses: maxUses,
-                expiryDays: expiryDays,
-                codeType: codeType,
-                usedCount: 0,
-                usedBy: [],
-                createdAt: timestamp,
-                createdBy: userRole
-            };
+            const batch = db.batch();
+            const codes = [];
+            const timestamp = firebase.firestore.FieldValue.serverTimestamp();
             
-            const codeRef = db.collection('RegistrationCodes').doc(code);
-            batch.set(codeRef, codeData);
-            
-            codes.push(code);
-        }
-        
-        await batch.commit();
-        console.log('Generated codes:', codes);
-        
-        // Show results with working buttons
-        const resultDiv = document.getElementById('generationResult');
-        if (resultDiv) {
-            const downloadId = 'downloadBtn_' + Date.now();
-            
-            resultDiv.innerHTML = `
-                <div class="success-message" style="background: #d4edda; color: #155724; padding: 20px; border-radius: 10px;">
-                    <div style="font-size: 20px; margin-bottom: 15px;">✅ Generated ${count} Codes Successfully!</div>
-                    
-                    <div style="margin: 20px 0; max-height: 250px; overflow-y: auto; border: 1px solid #c3e6cb; border-radius: 8px; padding: 10px;">
-                        ${codes.map(code => `
-                            <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #c3e6cb;">
-                                <code style="flex: 1; font-family: monospace; font-size: 14px; color: #0d3c1c;">${code}</code>
-                                <button class="copy-code-btn" data-code="${code}" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    Copy
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                        <button id="${downloadId}" style="background: var(--success-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">
-                            📥 Download ${codes.length} Codes as CSV
-                        </button>
-                        <button onclick="this.closest('.success-message').parentElement.innerHTML = ''" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            // Add event listeners to all copy buttons
-            document.querySelectorAll('.copy-code-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const code = this.getAttribute('data-code');
-                    copyToClipboard(code);
-                });
-            });
-            
-            // Add event listener to download button
-            document.getElementById(downloadId).addEventListener('click', function() {
-                downloadCodesAsCSV(codes);
-            });
-        }
-        
-        showToast(`Generated ${count} codes successfully!`, 'success');
-        
-        // Refresh the dashboard to show new codes
-        setTimeout(() => {
-            if (typeof showRegistrationDashboard === 'function') {
-                showRegistrationDashboard();
+            for (let i = 0; i < count; i++) {
+                const prefix = codeType === 'admin' ? 'ADMIN' : (codeType === 'editor' ? 'EDIT' : 'CWAC');
+                const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const code = `${prefix}-${random}`;
+                
+                const codeData = {
+                    code: code,
+                    description: `${description} #${i+1}`,
+                    maxUses: maxUses,
+                    expiryDays: expiryDays,
+                    codeType: codeType,
+                    usedCount: 0,
+                    usedBy: [],
+                    createdAt: timestamp,
+                    createdBy: userRole
+                };
+                
+                const codeRef = db.collection('RegistrationCodes').doc(code);
+                batch.set(codeRef, codeData);
+                
+                codes.push(code);
             }
-        }, 2000);
-        
-    } catch (e) {
-        console.error('Error generating multiple codes:', e);
-        showToast('Error generating codes: ' + e.message, 'error');
-    }
-};
+            
+            await batch.commit();
+            console.log('Generated codes:', codes);
+            
+            // Show results with working buttons
+            const resultDiv = document.getElementById('generationResult');
+            if (resultDiv) {
+                const downloadId = 'downloadBtn_' + Date.now();
+                
+                resultDiv.innerHTML = `
+                    <div class="success-message" style="background: #d4edda; color: #155724; padding: 20px; border-radius: 10px;">
+                        <div style="font-size: 20px; margin-bottom: 15px;">✅ Generated ${count} Codes Successfully!</div>
+                        
+                        <div style="margin: 20px 0; max-height: 250px; overflow-y: auto; border: 1px solid #c3e6cb; border-radius: 8px; padding: 10px;">
+                            ${codes.map(code => `
+                                <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #c3e6cb;">
+                                    <code style="flex: 1; font-family: monospace; font-size: 14px; color: #0d3c1c;">${code}</code>
+                                    <button class="copy-code-btn" data-code="${code}" style="background: var(--primary-color); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                        Copy
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                            <button id="${downloadId}" style="background: var(--success-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                                📥 Download ${codes.length} Codes as CSV
+                            </button>
+                            <button onclick="this.closest('.success-message').parentElement.innerHTML = ''" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add event listeners to all copy buttons
+                document.querySelectorAll('.copy-code-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const code = this.getAttribute('data-code');
+                        copyToClipboard(code);
+                    });
+                });
+                
+                // Add event listener to download button
+                document.getElementById(downloadId).addEventListener('click', function() {
+                    downloadCodesAsCSV(codes);
+                });
+            }
+            
+            showToast(`Generated ${count} codes successfully!`, 'success');
+            
+            // Refresh the dashboard to show new codes
+            setTimeout(() => {
+                if (typeof showRegistrationDashboard === 'function') {
+                    showRegistrationDashboard();
+                }
+            }, 2000);
+            
+        } catch (e) {
+            console.error('Error generating multiple codes:', e);
+            showToast('Error generating codes: ' + e.message, 'error');
+        }
+    };
     
     // Copy generated code
     window.copyGeneratedCode = function() {
@@ -938,203 +939,333 @@ async function validateRegistrationCode(code, fingerprint) {
     
     // ========== FIXED CSV DOWNLOAD ==========
 
-   // Download codes as CSV - COMPLETELY FIXED VERSION
+    // Download codes as CSV
     window.downloadCodesAsCSV = function(codesData) {
-    try {
-        console.log('Download CSV called with:', codesData);
-        
-        // Handle different input types
-        let codes = [];
-        
-        if (typeof codesData === 'string') {
-            try {
-                codes = JSON.parse(codesData);
-            } catch (e) {
-                codes = [codesData];
+        try {
+            console.log('Download CSV called with:', codesData);
+            
+            // Handle different input types
+            let codes = [];
+            
+            if (typeof codesData === 'string') {
+                try {
+                    codes = JSON.parse(codesData);
+                } catch (e) {
+                    codes = [codesData];
+                }
+            } else if (Array.isArray(codesData)) {
+                codes = codesData;
+            } else if (codesData && typeof codesData === 'object') {
+                codes = Object.values(codesData);
+            } else {
+                codes = [];
             }
-        } else if (Array.isArray(codesData)) {
-            codes = codesData;
-        } else if (codesData && typeof codesData === 'object') {
-            codes = Object.values(codesData);
-        } else {
-            codes = [];
+            
+            // Ensure codes is an array and not empty
+            if (!Array.isArray(codes) || codes.length === 0) {
+                showToast('No codes to download', 'warning');
+                return;
+            }
+            
+            console.log('Processing codes for CSV:', codes);
+            
+            // Create CSV content with headers
+            const headers = ['Code', 'Description', 'Max Uses', 'Expiry Days', 'Type', 'Created Date'];
+            const rows = [headers];
+            
+            const now = new Date().toLocaleDateString();
+            
+            // Add each code as a row
+            codes.forEach(code => {
+                rows.push([
+                    code,
+                    'Registration Code',
+                    '50',
+                    '30',
+                    'standard',
+                    now
+                ]);
+            });
+            
+            // Convert to CSV string
+            const csvContent = rows.map(row => 
+                row.map(cell => {
+                    // Escape commas by wrapping in quotes
+                    if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+                        return `"${cell.replace(/"/g, '""')}"`;
+                    }
+                    return cell;
+                }).join(',')
+            ).join('\n');
+            
+            // Add BOM for Excel compatibility
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            // Create download link
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const filename = `registration_codes_${new Date().toISOString().split('T')[0]}.csv`;
+            
+            link.href = url;
+            link.setAttribute('download', filename);
+            link.style.display = 'none';
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            showToast(`Downloaded ${codes.length} codes successfully!`, 'success');
+            console.log(`Downloaded ${codes.length} codes as ${filename}`);
+            
+        } catch (error) {
+            console.error('Error downloading CSV:', error);
+            showToast('Error downloading CSV: ' + error.message, 'error');
         }
-        
-        // Ensure codes is an array and not empty
-        if (!Array.isArray(codes) || codes.length === 0) {
-            showToast('No codes to download', 'warning');
+    };
+
+    // ========== COPY TO CLIPBOARD HELPER ==========
+    window.copyToClipboard = function(text) {
+        if (!text) {
+            showToast('Nothing to copy', 'warning');
             return;
         }
         
-        console.log('Processing codes for CSV:', codes);
-        
-        // Create CSV content with headers
-        const headers = ['Code', 'Description', 'Max Uses', 'Expiry Days', 'Type', 'Created Date'];
-        const rows = [headers];
-        
-        const now = new Date().toLocaleDateString();
-        
-        // Add each code as a row
-        codes.forEach(code => {
-            rows.push([
-                code,
-                'Registration Code',
-                '50',
-                '30',
-                'standard',
-                now
-            ]);
-        });
-        
-        // Convert to CSV string
-        const csvContent = rows.map(row => 
-            row.map(cell => {
-                // Escape commas by wrapping in quotes
-                if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
-                    return `"${cell.replace(/"/g, '""')}"`;
-                }
-                return cell;
-            }).join(',')
-        ).join('\n');
-        
-        // Add BOM for Excel compatibility
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        
-        // Create download link
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        const filename = `registration_codes_${new Date().toISOString().split('T')[0]}.csv`;
-        
-        link.href = url;
-        link.setAttribute('download', filename);
-        link.style.display = 'none';
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 100);
-        
-        showToast(`Downloaded ${codes.length} codes successfully!`, 'success');
-        console.log(`Downloaded ${codes.length} codes as ${filename}`);
-        
-    } catch (error) {
-        console.error('Error downloading CSV:', error);
-        showToast('Error downloading CSV: ' + error.message, 'error');
-    }
-};
-
-   
-
-   // ========== COPY TO CLIPBOARD HELPER ==========
-    window.copyToClipboard = function(text) {
-    if (!text) {
-        showToast('Nothing to copy', 'warning');
-        return;
-    }
-    
-    // Use modern clipboard API if available
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast(`✅ Copied: ${text}`, 'success');
-        }).catch(err => {
-            console.error('Clipboard error:', err);
+        // Use modern clipboard API if available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`✅ Copied: ${text}`, 'success');
+            }).catch(err => {
+                console.error('Clipboard error:', err);
+                fallbackCopyToClipboard(text);
+            });
+        } else {
             fallbackCopyToClipboard(text);
-        });
-    } else {
-        fallbackCopyToClipboard(text);
-    }
-};
+        }
+    };
 
-   // Fallback for older browsers
+    // Fallback for older browsers
     function fallbackCopyToClipboard(text) {
-    try {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        textarea.setSelectionRange(0, 99999);
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showToast(`✅ Copied: ${text}`, 'success');
-    } catch (err) {
-        console.error('Fallback clipboard error:', err);
-        showToast('❌ Could not copy to clipboard', 'error');
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast(`✅ Copied: ${text}`, 'success');
+        } catch (err) {
+            console.error('Fallback clipboard error:', err);
+            showToast('❌ Could not copy to clipboard', 'error');
+        }
     }
-}
 
     // ========== FIXED DELETE REGISTRATION CODE ==========
 
-   // Delete a registration code - FIXED VERSION
+    // Delete a registration code
     window.deleteRegistrationCode = async function(code) {
-    if (!code) {
-        showToast('No code specified', 'error');
-        return;
-    }
-    
-    // Clean the code (remove any extra quotes or spaces)
-    const cleanCode = code.toString().trim().replace(/['"]/g, '');
-    
-    if (!confirm(`⚠️ Are you sure you want to delete code "${cleanCode}"?\n\nThis will permanently remove this code from the database. Users who registered with this code will still have access, but new users cannot use this code.`)) {
-        return;
-    }
-    
-    try {
-        showToast('Deleting code...', 'info');
-        console.log('Attempting to delete code:', cleanCode);
+        if (!code) {
+            showToast('No code specified', 'error');
+            return;
+        }
         
-        // Try to delete by document ID first
-        let deleted = false;
+        // Clean the code (remove any extra quotes or spaces)
+        const cleanCode = code.toString().trim().replace(/['"]/g, '');
+        
+        if (!confirm(`⚠️ Are you sure you want to delete code "${cleanCode}"?\n\nThis will permanently remove this code from the database. Users who registered with this code will still have access, but new users cannot use this code.`)) {
+            return;
+        }
         
         try {
-            await db.collection('RegistrationCodes').doc(cleanCode).delete();
-            deleted = true;
-            console.log('Deleted by document ID:', cleanCode);
-        } catch (e) {
-            console.log('Could not delete by ID, trying query...');
-        }
-        
-        // If not deleted by ID, try querying for the code field
-        if (!deleted) {
-            const querySnapshot = await db.collection('RegistrationCodes')
-                .where('code', '==', cleanCode)
-                .get();
+            showToast('Deleting code...', 'info');
+            console.log('Attempting to delete code:', cleanCode);
             
-            if (!querySnapshot.empty) {
-                const batch = db.batch();
-                querySnapshot.forEach(doc => {
-                    console.log('Deleting document:', doc.id);
-                    batch.delete(doc.ref);
-                });
-                await batch.commit();
+            // Try to delete by document ID first
+            let deleted = false;
+            
+            try {
+                await db.collection('RegistrationCodes').doc(cleanCode).delete();
                 deleted = true;
+                console.log('Deleted by document ID:', cleanCode);
+            } catch (e) {
+                console.log('Could not delete by ID, trying query...');
             }
-        }
-        
-        if (deleted) {
-            showToast(`Code "${cleanCode}" deleted successfully`, 'success');
             
-            // Refresh the dashboard
-            setTimeout(() => {
-                if (typeof showRegistrationDashboard === 'function') {
-                    showRegistrationDashboard();
+            // If not deleted by ID, try querying for the code field
+            if (!deleted) {
+                const querySnapshot = await db.collection('RegistrationCodes')
+                    .where('code', '==', cleanCode)
+                    .get();
+                
+                if (!querySnapshot.empty) {
+                    const batch = db.batch();
+                    querySnapshot.forEach(doc => {
+                        console.log('Deleting document:', doc.id);
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                    deleted = true;
                 }
-            }, 1000);
-        } else {
-            showToast(`Code "${cleanCode}" not found in database`, 'warning');
+            }
+            
+            if (deleted) {
+                showToast(`Code "${cleanCode}" deleted successfully`, 'success');
+                
+                // Refresh the dashboard
+                setTimeout(() => {
+                    if (typeof showRegistrationDashboard === 'function') {
+                        showRegistrationDashboard();
+                    }
+                }, 1000);
+            } else {
+                showToast(`Code "${cleanCode}" not found in database`, 'warning');
+            }
+            
+        } catch (e) {
+            console.error('Error deleting code:', e);
+            showToast('Error deleting code: ' + e.message, 'error');
         }
-        
-    } catch (e) {
-        console.error('Error deleting code:', e);
-        showToast('Error deleting code: ' + e.message, 'error');
+    };
+    
+    // ========== FIXED CLOUD SYNC FUNCTIONS ==========
+    
+    // FIXED: Load data from cloud - only loads what field staff needs
+    async function loadDataFromCloud() {
+        try {
+            showToast('Loading data from cloud...', 'info');
+            
+            // Clear existing data - only initialize what field staff needs
+            window.unpaidData = {};
+            window.statusData = {};
+            
+            // Load UnpaidMembers
+            console.log('Loading UnpaidMembers...');
+            const unpaidSnapshot = await db.collection('UnpaidMembers').get();
+            
+            unpaidSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!window.unpaidData[area]) window.unpaidData[area] = [];
+                window.unpaidData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber
+                });
+            });
+            
+            // Load Status
+            console.log('Loading Status...');
+            const statusSnapshot = await db.collection('Status').get();
+            
+            statusSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!window.statusData[area]) window.statusData[area] = [];
+                window.statusData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber,
+                    status: member.status
+                });
+            });
+            
+            // Sort all areas
+            Object.keys(window.unpaidData).forEach(area => {
+                window.unpaidData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            Object.keys(window.statusData).forEach(area => {
+                window.statusData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            
+            const totalUnpaid = Object.values(window.unpaidData).reduce((sum, arr) => sum + arr.length, 0);
+            const totalStatus = Object.values(window.statusData).reduce((sum, arr) => sum + arr.length, 0);
+            
+            console.log('✅ Data loaded from cloud:', { unpaid: totalUnpaid, status: totalStatus });
+            showToast(`Loaded ${totalUnpaid} unpaid, ${totalStatus} status members`, 'success');
+            
+            // Update UI
+            if (typeof populateCwacLists === 'function') populateCwacLists();
+            if (typeof showDataStats === 'function') showDataStats();
+            
+            // Save to local
+            saveDataToLocal();
+            
+            return true;
+            
+        } catch (e) {
+            console.error('Cloud load error:', e);
+            showToast('Failed to load from cloud: ' + e.message, 'error');
+            
+            // Fallback to local data
+            loadDataFromLocal();
+            return false;
+        }
     }
-};
+    
+    // FIXED: Save data to cloud - only saves what field staff can edit
+    async function saveDataToCloud() {
+        try {
+            showToast('Syncing data to cloud...', 'info');
+            
+            const batch = db.batch();
+            
+            // Save unpaid members (with any edits made)
+            Object.keys(unpaidData).forEach(area => {
+                unpaidData[area].forEach((member, index) => {
+                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
+                    const memberRef = db.collection('UnpaidMembers').doc(memberId);
+                    batch.set(memberRef, {
+                        name: member.name,
+                        id: member.id,
+                        callNumber: member.callNumber,
+                        cwacArea: area,
+                        status: 'UNPAID',
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: userRole,
+                        index: index
+                    }, { merge: true });
+                });
+            });
+            
+            // Save status updates
+            Object.keys(statusData).forEach(area => {
+                statusData[area].forEach((member, index) => {
+                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
+                    const statusRef = db.collection('Status').doc(memberId);
+                    batch.set(statusRef, {
+                        name: member.name,
+                        id: member.id,
+                        callNumber: member.callNumber,
+                        cwacArea: area,
+                        status: member.status || 'ALIVE',
+                        lastChecked: firebase.firestore.FieldValue.serverTimestamp(),
+                        checkedBy: userRole
+                    }, { merge: true });
+                });
+            });
+            
+            await batch.commit();
+            
+            console.log('✅ Data synced to cloud');
+            showToast('Data synced successfully!', 'success');
+            
+            saveDataToLocal();
+            
+        } catch (e) {
+            console.error('Cloud sync error:', e);
+            showToast('Sync failed - check internet', 'error');
+            
+            saveDataToLocal();
+        }
+    }
     
     // ========== INTEGRATE WITH EXISTING USER ROLE SYSTEM ==========
     
@@ -1203,7 +1334,15 @@ async function validateRegistrationCode(code, fingerprint) {
         DebugPanel.init();
         addCreditLine();
         addSyncButton();
-        initializeData();
+        
+        // Auto-load data based on role (viewers only load unpaid/status)
+        if (userRole === 'viewer' || userRole === 'admin') {
+            loadDataFromCloud().catch(() => {
+                loadDataFromLocal();
+                populateCwacLists();
+                showDataStats();
+            });
+        }
         
         console.log('App initialization complete with Registration System');
     }
@@ -1262,7 +1401,16 @@ async function validateRegistrationCode(code, fingerprint) {
                         applyRoleBasedUI();
                         showDataStats();
                         addSearchToLists();
-                        initializeData();
+                        // Initialize data based on role
+                        if (userRole === 'viewer') {
+                            loadDataFromCloud().catch(() => {
+                                loadDataFromLocal();
+                                populateCwacLists();
+                                showDataStats();
+                            });
+                        } else {
+                            initializeData();
+                        }
                     }, 100);
                 }
             }
@@ -1483,151 +1631,7 @@ async function validateRegistrationCode(code, fingerprint) {
         }
     };
     
-    // ========== CLOUD SYNC FUNCTIONS ==========
-    
-    async function saveDataToCloud() {
-        try {
-            showToast('Syncing data to cloud...', 'info');
-            
-            const batch = db.batch();
-            
-            Object.keys(paidData).forEach(area => {
-                paidData[area].forEach((member, index) => {
-                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
-                    const memberRef = db.collection('PaidMembers').doc(memberId);
-                    batch.set(memberRef, {
-                        name: member.name,
-                        id: member.id,
-                        callNumber: member.callNumber,
-                        cwacArea: area,
-                        status: 'PAID',
-                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-                        updatedBy: userRole,
-                        index: index
-                    }, { merge: true });
-                });
-            });
-            
-            Object.keys(unpaidData).forEach(area => {
-                unpaidData[area].forEach((member, index) => {
-                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
-                    const memberRef = db.collection('UnpaidMembers').doc(memberId);
-                    batch.set(memberRef, {
-                        name: member.name,
-                        id: member.id,
-                        callNumber: member.callNumber,
-                        cwacArea: area,
-                        status: 'UNPAID',
-                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-                        updatedBy: userRole,
-                        index: index,
-                        needsReview: true
-                    }, { merge: true });
-                });
-            });
-            
-            Object.keys(statusData).forEach(area => {
-                statusData[area].forEach((member, index) => {
-                    const memberId = member.id || `${area}_${index}_${Date.now()}`;
-                    const statusRef = db.collection('Status').doc(memberId);
-                    batch.set(statusRef, {
-                        name: member.name,
-                        id: member.id,
-                        callNumber: member.callNumber,
-                        cwacArea: area,
-                        status: member.status || 'ALIVE',
-                        lastChecked: firebase.firestore.FieldValue.serverTimestamp(),
-                        checkedBy: userRole
-                    }, { merge: true });
-                });
-            });
-            
-            await batch.commit();
-            
-            console.log('Data synced to cloud');
-            showToast('Data synced successfully!', 'success');
-            
-            saveDataToLocal();
-            
-        } catch (e) {
-            console.error('Cloud sync error:', e);
-            showToast('Sync failed - check internet', 'error');
-            
-            saveDataToLocal();
-        }
-    }
-    
-    async function loadDataFromCloud() {
-        try {
-            showToast('Loading data from cloud...', 'info');
-            
-            paidData = {};
-            unpaidData = {};
-            statusData = {};
-            
-            const paidSnapshot = await db.collection('PaidMembers').get();
-            paidSnapshot.forEach(doc => {
-                const member = doc.data();
-                const area = member.cwacArea;
-                if (!paidData[area]) paidData[area] = [];
-                paidData[area].push({
-                    name: member.name,
-                    id: member.id,
-                    callNumber: member.callNumber
-                });
-            });
-            
-            const unpaidSnapshot = await db.collection('UnpaidMembers').get();
-            unpaidSnapshot.forEach(doc => {
-                const member = doc.data();
-                const area = member.cwacArea;
-                if (!unpaidData[area]) unpaidData[area] = [];
-                unpaidData[area].push({
-                    name: member.name,
-                    id: member.id,
-                    callNumber: member.callNumber
-                });
-            });
-            
-            const statusSnapshot = await db.collection('Status').get();
-            statusSnapshot.forEach(doc => {
-                const member = doc.data();
-                const area = member.cwacArea;
-                if (!statusData[area]) statusData[area] = [];
-                statusData[area].push({
-                    name: member.name,
-                    id: member.id,
-                    callNumber: member.callNumber,
-                    status: member.status
-                });
-            });
-            
-            Object.keys(paidData).forEach(area => {
-                paidData[area].sort((a, b) => a.name.localeCompare(b.name));
-            });
-            Object.keys(unpaidData).forEach(area => {
-                unpaidData[area].sort((a, b) => a.name.localeCompare(b.name));
-            });
-            Object.keys(statusData).forEach(area => {
-                statusData[area].sort((a, b) => a.name.localeCompare(b.name));
-            });
-            
-            console.log('Data loaded from cloud');
-            showToast('Data loaded successfully!', 'success');
-            
-            populateCwacLists();
-            showDataStats();
-            
-            saveDataToLocal();
-            
-            return true;
-            
-        } catch (e) {
-            console.error('Cloud load error:', e);
-            showToast('Failed to load from cloud', 'error');
-            return false;
-        }
-    }
+    // ========== SAVE PHONE EDIT & STATUS UPDATE FUNCTIONS ==========
     
     async function savePhoneNumberEdit(area, memberIndex, oldNumber, newNumber, memberName, memberId) {
         try {
@@ -1740,7 +1744,6 @@ async function validateRegistrationCode(code, fingerprint) {
 
     function saveDataToLocal() {
         try {
-            localStorage.setItem('cwac_paidData', JSON.stringify(paidData));
             localStorage.setItem('cwac_unpaidData', JSON.stringify(unpaidData));
             localStorage.setItem('cwac_statusData', JSON.stringify(statusData));
             localStorage.setItem('cwac_lastSync', new Date().toISOString());
@@ -1752,11 +1755,9 @@ async function validateRegistrationCode(code, fingerprint) {
     
     function loadDataFromLocal() {
         try {
-            const savedPaid = localStorage.getItem('cwac_paidData');
             const savedUnpaid = localStorage.getItem('cwac_unpaidData');
             const savedStatus = localStorage.getItem('cwac_statusData');
             
-            if (savedPaid) paidData = JSON.parse(savedPaid);
             if (savedUnpaid) unpaidData = JSON.parse(savedUnpaid);
             if (savedStatus) statusData = JSON.parse(savedStatus);
             
@@ -2106,20 +2107,23 @@ async function validateRegistrationCode(code, fingerprint) {
     });
     
     // ========== DATA STORAGE ==========
-    let paidData = {};
+    let paidData = {};  // Kept for admin compatibility
     let unpaidData = {};
     let statusData = {};
     let failedRecords = [];
     let virtualScrollers = {};
     
     async function initializeData() {
-        const cloudLoaded = await loadDataFromCloud();
-        if (!cloudLoaded) {
-            const localLoaded = loadDataFromLocal();
-            if (localLoaded) {
-                showToast('Loaded data from local storage', 'info');
-                populateCwacLists();
-                showDataStats();
+        // For admin - try cloud first, then local
+        if (userRole === 'admin') {
+            const cloudLoaded = await loadDataFromCloud();
+            if (!cloudLoaded) {
+                const localLoaded = loadDataFromLocal();
+                if (localLoaded) {
+                    showToast('Loaded data from local storage', 'info');
+                    populateCwacLists();
+                    showDataStats();
+                }
             }
         }
     }
