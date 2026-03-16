@@ -1138,6 +1138,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== FIXED CLOUD SYNC FUNCTIONS ==========
     
     // FIXED: Load data from cloud - only loads what field staff needs
+
+    // Prevent multiple initializations
+let appInitialized = false;
+
+// Then in your initialization code:
+if (!appInitialized) {
+    appInitialized = true;
+    // ... your initialization code ...
+}
     async function loadDataFromCloud() {
         try {
             showToast('Loading data from cloud...', 'info');
