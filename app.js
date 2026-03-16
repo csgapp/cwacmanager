@@ -1383,42 +1383,117 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== START THE APPLICATION ==========
     
     // Override the get started button to check registration first
-    const getStartedBtn = document.getElementById('getStarted');
-    if (getStartedBtn) {
-        const originalClick = getStartedBtn.onclick;
-        getStartedBtn.onclick = async function(e) {
-            e.preventDefault();
-            const registered = await checkDeviceRegistration();
-            if (registered) {
-                const memberManagement = document.getElementById('memberManagement');
-                const header = document.querySelector('header');
-                if (memberManagement && header) {
-                    memberManagement.style.display = 'block';
-                    header.style.display = 'none';
-                    console.log('Get Started clicked - showing member management');
-                    
-                    setTimeout(() => {
-                        applyRoleBasedUI();
-                        showDataStats();
-                        addSearchToLists();
-                        // Initialize data based on role
-                        if (userRole === 'viewer') {
-                            loadDataFromCloud().catch(() => {
-                                loadDataFromLocal();
-                                populateCwacLists();
-                                showDataStats();
-                            });
-                        } else {
-                            initializeData();
-                        }
-                    }, 100);
-                }
+const getStartedBtn = document.getElementById('getStarted');
+if (getStartedBtn) {
+    const originalClick = getStartedBtn.onclick;
+    getStartedBtn.onclick = async function(e) {
+        e.preventDefault();
+        const registered = await checkDeviceRegistration();
+        if (registered) {
+            const memberManagement = document.getElementById('memberManagement');
+            const header = document.querySelector('header');
+            if (memberManagement && header) {
+                memberManagement.style.display = 'block';
+                header.style.display = 'none';
+                console.log('Get Started clicked - showing member management');
+                
+                // SAFER APPROACH: Use a function that retries if things aren't ready
+                initializeAfterNavigation();
             }
-        };
+        }
+    };
+}
+
+// New safe initialization function
+function initializeAfterNavigation(retryCount = 0) {
+    // Don't retry forever
+    if (retryCount > 10) {
+        console.error('Failed to initialize after 10 retries');
+        return;
     }
     
-    // Start the initialization process
-    initializeWithRegistration();
+    // Check if all required elements exist
+    const roleIndicator = document.getElementById('roleIndicator');
+    const syncDiv = document.getElementById('syncDiv');
+    
+    // If elements aren't ready yet, retry after a short delay
+    if (!roleIndicator || !syncDiv) {
+        console.log(`Waiting for UI elements... (attempt ${retryCount + 1})`);
+        setTimeout(() => initializeAfterNavigation(retryCount + 1), 100);
+        return;
+    }
+    
+    // Now everything should be ready
+    console.log('UI elements ready, initializing...');
+    
+    // Apply role-based UI
+    if (typeof applyRoleBasedUI === 'function') {
+        applyRoleBasedUI();
+    }
+    
+    // Show stats
+    if (typeof showDataStats === 'function') {
+        showDataStats();
+    }
+    
+    // Add search
+    if (typeof addSearchToLists === 'function') {
+        addSearchToLists();
+    }
+    
+    // Load data based on role
+    if (userRole === 'admin') {
+        console.log('Admin mode - loading all data');
+        if (typeof loadDataFromCloud === 'function') {
+            loadDataFromCloud().catch(() => {
+                loadDataFromLocal();
+                if (typeof populateCwacLists === 'function') populateCwacLists();
+                if (typeof showDataStats === 'function') showDataStats();
+            });
+        }
+    } else {
+        console.log('Viewer mode - loading only unpaid/status');
+        // Check if we already have data
+        const hasUnpaidData = unpaidData && Object.keys(unpaidData).length > 0;
+        
+        if (!hasUnpaidData) {
+            if (typeof loadDataFromCloud === 'function') {
+                loadDataFromCloud().catch(() => {
+                    loadDataFromLocal();
+                    if (typeof populateCwacLists === 'function') populateCwacLists();
+                    if (typeof showDataStats === 'function') showDataStats();
+                });
+            }
+        } else {
+            // Data already loaded, just refresh
+            if (typeof populateCwacLists === 'function') populateCwacLists();
+            if (typeof showDataStats === 'function') showDataStats();
+            console.log('Viewer data already present');
+        }
+    }
+}
+
+// Also add a mutation observer as a backup (watches for DOM changes)
+const observer = new MutationObserver(function(mutations) {
+    // Check if member management became visible
+    const memberManagement = document.getElementById('memberManagement');
+    if (memberManagement && memberManagement.style.display === 'block') {
+        // If we haven't initialized yet, do it now
+        if (!window._initialized) {
+            window._initialized = true;
+            setTimeout(() => initializeAfterNavigation(), 500);
+        }
+    }
+});
+
+// Start observing when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    observer.observe(document.body, { 
+        attributes: true, 
+        subtree: true,
+        attributeFilter: ['style'] 
+    });
+});
     
     // ========== DRAGGABLE SYNC BUTTONS FUNCTIONALITY ==========
     
@@ -2114,19 +2189,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let virtualScrollers = {};
     
     async function initializeData() {
-        // For admin - try cloud first, then local
-        if (userRole === 'admin') {
-            const cloudLoaded = await loadDataFromCloud();
-            if (!cloudLoaded) {
-                const localLoaded = loadDataFromLocal();
-                if (localLoaded) {
-                    showToast('Loaded data from local storage', 'info');
-                    populateCwacLists();
-                    showDataStats();
-                }
-            }
+    // Only for admin - load everything
+    if (userRole === 'admin') {
+        try {
+            await loadDataFromCloud();
+        } catch (e) {
+            loadDataFromLocal();
+            populateCwacLists();
+            showDataStats();
+        }
+    } else {
+        // For viewers - just load from local or try cloud
+        try {
+            await loadDataFromCloud();
+        } catch (e) {
+            loadDataFromLocal();
+            populateCwacLists();
+            showDataStats();
         }
     }
+}
 
     window.goToLandingPage = function() {
         const memberManagement = document.getElementById('memberManagement');
