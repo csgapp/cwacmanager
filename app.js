@@ -1,6 +1,7 @@
 // app.js - Complete Enhanced Version with Firebase Cloud Syncing, Draggable Sync Buttons,
 // Registration Code System with Device Fingerprinting, and Admin Registration Dashboard
 // FIXED: Field staff can now load data without permission errors
+// FIXED: loadDataFromCloud reference error resolved
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -35,37 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let isLoading = false;
     let lastLoadTime = 0;
     let hasLoadedData = false;
+    let appInitialized = false;
 
-    // Override loadDataFromCloud with debounce
-    const originalLoadDataFromCloud = loadDataFromCloud;
-    loadDataFromCloud = async function() {
-    // Prevent multiple simultaneous loads
-    if (isLoading) {
-        console.log('⏳ Load already in progress, skipping...');
-        return false;
-    }
-    
-    // Don't reload if loaded in last 10 seconds
-    const now = Date.now();
-    if (hasLoadedData && (now - lastLoadTime < 10000)) {
-        console.log('✅ Using recently loaded data');
-        return true;
-    }
-    
-    isLoading = true;
-    
-    try {
-        const result = await originalLoadDataFromCloud();
-        if (result) {
-            hasLoadedData = true;
-            lastLoadTime = Date.now();
-        }
-        return result;
-    } finally {
-        isLoading = false;
-    }
-};
-    
     // ========== DEVICE FINGERPRINTING SYSTEM ==========
     
     // Generate a unique device fingerprint
@@ -155,12 +127,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ========== FIXED REGISTRATION CODE VALIDATION ==========
-
-    // Validate registration code - FIXED VERSION
+    // Validate registration code
     async function validateRegistrationCode(code, fingerprint) {
         const normalizedCode = code.trim().toUpperCase();
-        console.log('Validating code:', normalizedCode); // Debug log
+        console.log('Validating code:', normalizedCode);
         
         // First check if it's one of the hardcoded admin codes (for testing)
         if (normalizedCode === 'ADMIN2024' || normalizedCode === 'CWAC2024' || normalizedCode === 'FIELD2024') {
@@ -175,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            // IMPORTANT FIX: Try to get the code by document ID first
+            // Try to get the code by document ID first
             let codeDoc = await db.collection('RegistrationCodes').doc(normalizedCode).get();
             
             // If not found by ID, try querying where code field equals the value
@@ -972,8 +942,6 @@ document.addEventListener('DOMContentLoaded', function() {
         copyToClipboard(code);
     };
     
-    // ========== FIXED CSV DOWNLOAD ==========
-
     // Download codes as CSV
     window.downloadCodesAsCSV = function(codesData) {
         try {
@@ -1103,8 +1071,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== FIXED DELETE REGISTRATION CODE ==========
-
     // Delete a registration code
     window.deleteRegistrationCode = async function(code) {
         if (!code) {
@@ -1170,19 +1136,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // ========== FIXED CLOUD SYNC FUNCTIONS ==========
+    // ========== CLOUD SYNC FUNCTIONS ==========
     
-    // FIXED: Load data from cloud - only loads what field staff needs
-
-    // Prevent multiple initializations
-let appInitialized = false;
-
-// Then in your initialization code:
-if (!appInitialized) {
-    appInitialized = true;
-    // ... your initialization code ...
-}
+    // Load data from cloud - only loads what field staff needs
     async function loadDataFromCloud() {
+        // Prevent multiple simultaneous loads
+        if (isLoading) {
+            console.log('⏳ Load already in progress, skipping...');
+            return false;
+        }
+        
+        // Don't reload if loaded in last 10 seconds
+        const now = Date.now();
+        if (hasLoadedData && (now - lastLoadTime < 10000)) {
+            console.log('✅ Using recently loaded data');
+            return true;
+        }
+        
+        isLoading = true;
+        
         try {
             showToast('Loading data from cloud...', 'info');
             
@@ -1242,6 +1214,8 @@ if (!appInitialized) {
             // Save to local
             saveDataToLocal();
             
+            hasLoadedData = true;
+            lastLoadTime = Date.now();
             return true;
             
         } catch (e) {
@@ -1251,10 +1225,12 @@ if (!appInitialized) {
             // Fallback to local data
             loadDataFromLocal();
             return false;
+        } finally {
+            isLoading = false;
         }
     }
     
-    // FIXED: Save data to cloud - only saves what field staff can edit
+    // Save data to cloud - only saves what field staff can edit
     async function saveDataToCloud() {
         try {
             showToast('Syncing data to cloud...', 'info');
@@ -1362,41 +1338,40 @@ if (!appInitialized) {
     }
     
     // Complete the rest of the initialization
-   function completeInitialization() {
-    // Set up online/offline sync for registrations
-    window.addEventListener('online', () => {
-        syncPendingRegistrations();
-    });
-    
-    // Apply role-based UI
-    applyRoleBasedUI();
-    
-    // Add admin registration button if admin
-    addAdminRegistrationButton();
-    
-    // Continue with existing initialization
-    DebugPanel.init();
-    addCreditLine();
-    addSyncButton();
-    
-    // Only load data once
-    if (!hasLoadedData) {
-        loadDataFromCloud().catch(() => {
-            loadDataFromLocal();
+    function completeInitialization() {
+        // Set up online/offline sync for registrations
+        window.addEventListener('online', () => {
+            syncPendingRegistrations();
+        });
+        
+        // Apply role-based UI
+        applyRoleBasedUI();
+        
+        // Add admin registration button if admin
+        addAdminRegistrationButton();
+        
+        // Continue with existing initialization
+        DebugPanel.init();
+        addCreditLine();
+        addSyncButton();
+        
+        // Only load data once
+        if (!hasLoadedData) {
+            loadDataFromCloud().catch(() => {
+                loadDataFromLocal();
+                populateCwacLists();
+                showDataStats();
+            });
+        } else {
+            console.log('📊 Data already loaded, skipping initial load');
+            // Still make sure UI is updated
             populateCwacLists();
             showDataStats();
-        });
-    } else {
-        console.log('📊 Data already loaded, skipping initial load');
-        // Still make sure UI is updated
-        populateCwacLists();
-        showDataStats();
+        }
+        
+        console.log('App initialization complete with Registration System');
     }
     
-    console.log('App initialization complete with Registration System');
-}
-        
-           
     // Add admin button to view registrations
     function addAdminRegistrationButton() {
         if (userRole !== 'admin') return;
@@ -1408,133 +1383,101 @@ if (!appInitialized) {
         document.body.appendChild(btn);
     }
     
-    // ========== MODIFY EXISTING FUNCTIONS TO INCLUDE REGISTRATION ==========
-    
-    // Store original functions
-    const originalSaveDataToCloud = window.saveDataToCloud;
-    const originalLoadDataFromCloud = window.loadDataFromCloud;
-    
-    // Override save function
-    window.saveDataToCloud = async function() {
-        await syncPendingRegistrations();
-        if (typeof originalSaveDataToCloud === 'function') {
-            return originalSaveDataToCloud();
-        }
-    };
-    
-    // Override load function
-    window.loadDataFromCloud = async function() {
-        await syncPendingRegistrations();
-        if (typeof originalLoadDataFromCloud === 'function') {
-            return originalLoadDataFromCloud();
-        }
-    };
+    // Store original functions for reference (not overriding)
+    // We'll just use the functions directly
     
     // ========== START THE APPLICATION ==========
     
     // Override the get started button to check registration first
     const getStartedBtn = document.getElementById('getStarted');
     if (getStartedBtn) {
-    getStartedBtn.onclick = async function(e) {
-        e.preventDefault();
-        
-        // Prevent double clicks
-        if (window._processingGetStarted) {
-            console.log('Already processing get started...');
-            return;
-        }
-        window._processingGetStarted = true;
-        
-        const registered = await checkDeviceRegistration();
-        if (registered) {
-            const memberManagement = document.getElementById('memberManagement');
-            const header = document.querySelector('header');
-            if (memberManagement && header) {
-                memberManagement.style.display = 'block';
-                header.style.display = 'none';
-                console.log('Get Started clicked - showing member management');
-                
-                // Check if data already loaded
-                if (hasLoadedData && unpaidData && Object.keys(unpaidData).length > 0) {
-                    console.log('📊 Data already loaded, just refreshing UI');
-                    setTimeout(() => {
-                        applyRoleBasedUI();
-                        showDataStats();
-                        addSearchToLists();
-                        populateCwacLists();
-                    }, 100);
-                } else {
-                    // Load data only if needed
-                    setTimeout(() => {
-                        applyRoleBasedUI();
-                        showDataStats();
-                        addSearchToLists();
-                        loadDataFromCloud().catch(() => {
-                            loadDataFromLocal();
-                            populateCwacLists();
+        getStartedBtn.onclick = async function(e) {
+            e.preventDefault();
+            
+            // Prevent double clicks
+            if (window._processingGetStarted) {
+                console.log('Already processing get started...');
+                return;
+            }
+            window._processingGetStarted = true;
+            
+            const registered = await checkDeviceRegistration();
+            if (registered) {
+                const memberManagement = document.getElementById('memberManagement');
+                const header = document.querySelector('header');
+                if (memberManagement && header) {
+                    memberManagement.style.display = 'block';
+                    header.style.display = 'none';
+                    console.log('Get Started clicked - showing member management');
+                    
+                    // Check if data already loaded
+                    if (hasLoadedData && unpaidData && Object.keys(unpaidData).length > 0) {
+                        console.log('📊 Data already loaded, just refreshing UI');
+                        setTimeout(() => {
+                            applyRoleBasedUI();
                             showDataStats();
-                        });
-                    }, 100);
+                            addSearchToLists();
+                            populateCwacLists();
+                        }, 100);
+                    } else {
+                        // Load data only if needed
+                        setTimeout(() => {
+                            applyRoleBasedUI();
+                            showDataStats();
+                            addSearchToLists();
+                            loadDataFromCloud().catch(() => {
+                                loadDataFromLocal();
+                                populateCwacLists();
+                                showDataStats();
+                            });
+                        }, 100);
+                    }
                 }
             }
-        }
-        window._processingGetStarted = false;
-    };
-}
+            window._processingGetStarted = false;
+        };
+    }
 
-// New safe initialization function
-function initializeAfterNavigation(retryCount = 0) {
-    // Don't retry forever
-    if (retryCount > 10) {
-        console.error('Failed to initialize after 10 retries');
-        return;
-    }
-    
-    // Check if all required elements exist
-    const roleIndicator = document.getElementById('roleIndicator');
-    const syncDiv = document.getElementById('syncDiv');
-    
-    // If elements aren't ready yet, retry after a short delay
-    if (!roleIndicator || !syncDiv) {
-        console.log(`Waiting for UI elements... (attempt ${retryCount + 1})`);
-        setTimeout(() => initializeAfterNavigation(retryCount + 1), 100);
-        return;
-    }
-    
-    // Now everything should be ready
-    console.log('UI elements ready, initializing...');
-    
-    // Apply role-based UI
-    if (typeof applyRoleBasedUI === 'function') {
-        applyRoleBasedUI();
-    }
-    
-    // Show stats
-    if (typeof showDataStats === 'function') {
-        showDataStats();
-    }
-    
-    // Add search
-    if (typeof addSearchToLists === 'function') {
-        addSearchToLists();
-    }
-    
-    // Load data based on role
-    if (userRole === 'admin') {
-        console.log('Admin mode - loading all data');
-        if (typeof loadDataFromCloud === 'function') {
-            loadDataFromCloud().catch(() => {
-                loadDataFromLocal();
-                if (typeof populateCwacLists === 'function') populateCwacLists();
-                if (typeof showDataStats === 'function') showDataStats();
-            });
+    // New safe initialization function
+    function initializeAfterNavigation(retryCount = 0) {
+        // Don't retry forever
+        if (retryCount > 10) {
+            console.error('Failed to initialize after 10 retries');
+            return;
         }
-    } else {
-        console.log('Viewer mode - loading only unpaid/status');
-        // Check if we already have data
-        const hasUnpaidData = unpaidData && Object.keys(unpaidData).length > 0;
         
-        if (!hasUnpaidData) {
+        // Check if all required elements exist
+        const roleIndicator = document.getElementById('roleIndicator');
+        const syncDiv = document.getElementById('syncDiv');
+        
+        // If elements aren't ready yet, retry after a short delay
+        if (!roleIndicator || !syncDiv) {
+            console.log(`Waiting for UI elements... (attempt ${retryCount + 1})`);
+            setTimeout(() => initializeAfterNavigation(retryCount + 1), 100);
+            return;
+        }
+        
+        // Now everything should be ready
+        console.log('UI elements ready, initializing...');
+        
+        // Apply role-based UI
+        if (typeof applyRoleBasedUI === 'function') {
+            applyRoleBasedUI();
+        }
+        
+        // Show stats
+        if (typeof showDataStats === 'function') {
+            showDataStats();
+        }
+        
+        // Add search
+        if (typeof addSearchToLists === 'function') {
+            addSearchToLists();
+        }
+        
+        // Load data based on role
+        if (userRole === 'admin') {
+            console.log('Admin mode - loading all data');
             if (typeof loadDataFromCloud === 'function') {
                 loadDataFromCloud().catch(() => {
                     loadDataFromLocal();
@@ -1543,35 +1486,46 @@ function initializeAfterNavigation(retryCount = 0) {
                 });
             }
         } else {
-            // Data already loaded, just refresh
-            if (typeof populateCwacLists === 'function') populateCwacLists();
-            if (typeof showDataStats === 'function') showDataStats();
-            console.log('Viewer data already present');
+            console.log('Viewer mode - loading only unpaid/status');
+            // Check if we already have data
+            const hasUnpaidData = unpaidData && Object.keys(unpaidData).length > 0;
+            
+            if (!hasUnpaidData) {
+                if (typeof loadDataFromCloud === 'function') {
+                    loadDataFromCloud().catch(() => {
+                        loadDataFromLocal();
+                        if (typeof populateCwacLists === 'function') populateCwacLists();
+                        if (typeof showDataStats === 'function') showDataStats();
+                    });
+                }
+            } else {
+                // Data already loaded, just refresh
+                if (typeof populateCwacLists === 'function') populateCwacLists();
+                if (typeof showDataStats === 'function') showDataStats();
+                console.log('Viewer data already present');
+            }
         }
     }
-}
 
-// Also add a mutation observer as a backup (watches for DOM changes)
-const observer = new MutationObserver(function(mutations) {
-    // Check if member management became visible
-    const memberManagement = document.getElementById('memberManagement');
-    if (memberManagement && memberManagement.style.display === 'block') {
-        // If we haven't initialized yet, do it now
-        if (!window._initialized) {
-            window._initialized = true;
-            setTimeout(() => initializeAfterNavigation(), 500);
+    // Also add a mutation observer as a backup (watches for DOM changes)
+    const observer = new MutationObserver(function(mutations) {
+        // Check if member management became visible
+        const memberManagement = document.getElementById('memberManagement');
+        if (memberManagement && memberManagement.style.display === 'block') {
+            // If we haven't initialized yet, do it now
+            if (!window._initialized) {
+                window._initialized = true;
+                setTimeout(() => initializeAfterNavigation(), 500);
+            }
         }
-    }
-});
+    });
 
-// Start observing when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+    // Start observing when DOM is ready
     observer.observe(document.body, { 
         attributes: true, 
         subtree: true,
         attributeFilter: ['style'] 
     });
-});
     
     // ========== DRAGGABLE SYNC BUTTONS FUNCTIONALITY ==========
     
@@ -2267,26 +2221,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let virtualScrollers = {};
     
     async function initializeData() {
-    // Only for admin - load everything
-    if (userRole === 'admin') {
-        try {
-            await loadDataFromCloud();
-        } catch (e) {
-            loadDataFromLocal();
-            populateCwacLists();
-            showDataStats();
-        }
-    } else {
-        // For viewers - just load from local or try cloud
-        try {
-            await loadDataFromCloud();
-        } catch (e) {
-            loadDataFromLocal();
-            populateCwacLists();
-            showDataStats();
+        // Only for admin - load everything
+        if (userRole === 'admin') {
+            try {
+                await loadDataFromCloud();
+            } catch (e) {
+                loadDataFromLocal();
+                populateCwacLists();
+                showDataStats();
+            }
+        } else {
+            // For viewers - just load from local or try cloud
+            try {
+                await loadDataFromCloud();
+            } catch (e) {
+                loadDataFromLocal();
+                populateCwacLists();
+                showDataStats();
+            }
         }
     }
-}
 
     window.goToLandingPage = function() {
         const memberManagement = document.getElementById('memberManagement');
@@ -3645,5 +3599,12 @@ document.addEventListener('DOMContentLoaded', function() {
         exportUnpaidBtn.addEventListener('click', () => {
             exportCSV(unpaidData, `unpaid_members_${new Date().toISOString().slice(0,10)}.csv`);
         });
+    }
+    
+    // ========== START THE APPLICATION ==========
+    // Check if we should start with registration check
+    if (!appInitialized) {
+        appInitialized = true;
+        initializeWithRegistration();
     }
 });
