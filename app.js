@@ -30,6 +30,41 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Persistence not supported by browser');
         }
     });
+
+    // ========== PREVENT MULTIPLE LOADS ==========
+    let isLoading = false;
+    let lastLoadTime = 0;
+    let hasLoadedData = false;
+
+    // Override loadDataFromCloud with debounce
+    const originalLoadDataFromCloud = loadDataFromCloud;
+    loadDataFromCloud = async function() {
+    // Prevent multiple simultaneous loads
+    if (isLoading) {
+        console.log('⏳ Load already in progress, skipping...');
+        return false;
+    }
+    
+    // Don't reload if loaded in last 10 seconds
+    const now = Date.now();
+    if (hasLoadedData && (now - lastLoadTime < 10000)) {
+        console.log('✅ Using recently loaded data');
+        return true;
+    }
+    
+    isLoading = true;
+    
+    try {
+        const result = await originalLoadDataFromCloud();
+        if (result) {
+            hasLoadedData = true;
+            lastLoadTime = Date.now();
+        }
+        return result;
+    } finally {
+        isLoading = false;
+    }
+};
     
     // ========== DEVICE FINGERPRINTING SYSTEM ==========
     
@@ -1327,31 +1362,39 @@ if (!appInitialized) {
     }
     
     // Complete the rest of the initialization
-    function completeInitialization() {
-        // Set up online/offline sync for registrations
-        window.addEventListener('online', () => {
-            syncPendingRegistrations();
+   function completeInitialization() {
+    // Set up online/offline sync for registrations
+    window.addEventListener('online', () => {
+        syncPendingRegistrations();
+    });
+    
+    // Apply role-based UI
+    applyRoleBasedUI();
+    
+    // Add admin registration button if admin
+    addAdminRegistrationButton();
+    
+    // Continue with existing initialization
+    DebugPanel.init();
+    addCreditLine();
+    addSyncButton();
+    
+    // Only load data once
+    if (!hasLoadedData) {
+        loadDataFromCloud().catch(() => {
+            loadDataFromLocal();
+            populateCwacLists();
+            showDataStats();
         });
-        
-        // Apply role-based UI
-        applyRoleBasedUI();
-        
-        // Add admin registration button if admin
-        addAdminRegistrationButton();
-        
-        // Continue with existing initialization
-        DebugPanel.init();
-        addCreditLine();
-        addSyncButton();
-        
-        // Auto-load data based on role (viewers only load unpaid/status)
-        if (userRole === 'viewer' || userRole === 'admin') {
-            loadDataFromCloud().catch(() => {
-                loadDataFromLocal();
-                populateCwacLists();
-                showDataStats();
-            });
-        }
+    } else {
+        console.log('📊 Data already loaded, skipping initial load');
+        // Still make sure UI is updated
+        populateCwacLists();
+        showDataStats();
+    }
+    
+    console.log('App initialization complete with Registration System');
+}
         
         console.log('App initialization complete with Registration System');
     }
@@ -1392,11 +1435,18 @@ if (!appInitialized) {
     // ========== START THE APPLICATION ==========
     
     // Override the get started button to check registration first
-const getStartedBtn = document.getElementById('getStarted');
-if (getStartedBtn) {
-    const originalClick = getStartedBtn.onclick;
+    const getStartedBtn = document.getElementById('getStarted');
+    if (getStartedBtn) {
     getStartedBtn.onclick = async function(e) {
         e.preventDefault();
+        
+        // Prevent double clicks
+        if (window._processingGetStarted) {
+            console.log('Already processing get started...');
+            return;
+        }
+        window._processingGetStarted = true;
+        
         const registered = await checkDeviceRegistration();
         if (registered) {
             const memberManagement = document.getElementById('memberManagement');
@@ -1406,10 +1456,31 @@ if (getStartedBtn) {
                 header.style.display = 'none';
                 console.log('Get Started clicked - showing member management');
                 
-                // SAFER APPROACH: Use a function that retries if things aren't ready
-                initializeAfterNavigation();
+                // Check if data already loaded
+                if (hasLoadedData && unpaidData && Object.keys(unpaidData).length > 0) {
+                    console.log('📊 Data already loaded, just refreshing UI');
+                    setTimeout(() => {
+                        applyRoleBasedUI();
+                        showDataStats();
+                        addSearchToLists();
+                        populateCwacLists();
+                    }, 100);
+                } else {
+                    // Load data only if needed
+                    setTimeout(() => {
+                        applyRoleBasedUI();
+                        showDataStats();
+                        addSearchToLists();
+                        loadDataFromCloud().catch(() => {
+                            loadDataFromLocal();
+                            populateCwacLists();
+                            showDataStats();
+                        });
+                    }, 100);
+                }
             }
         }
+        window._processingGetStarted = false;
     };
 }
 
