@@ -1158,9 +1158,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showToast('Loading data from cloud...', 'info');
             
-            // Clear existing data - only initialize what field staff needs
-            window.unpaidData = {};
-            window.statusData = {};
+            // FIX: Clear the LOCAL variables, not window properties
+            unpaidData = {};
+            statusData = {};
+            paidData = {}; // Clear paid data too
             
             // Load UnpaidMembers
             console.log('Loading UnpaidMembers...');
@@ -1169,8 +1170,8 @@ document.addEventListener('DOMContentLoaded', function() {
             unpaidSnapshot.forEach(doc => {
                 const member = doc.data();
                 const area = member.cwacArea;
-                if (!window.unpaidData[area]) window.unpaidData[area] = [];
-                window.unpaidData[area].push({
+                if (!unpaidData[area]) unpaidData[area] = [];
+                unpaidData[area].push({
                     name: member.name,
                     id: member.id,
                     callNumber: member.callNumber
@@ -1184,28 +1185,47 @@ document.addEventListener('DOMContentLoaded', function() {
             statusSnapshot.forEach(doc => {
                 const member = doc.data();
                 const area = member.cwacArea;
-                if (!window.statusData[area]) window.statusData[area] = [];
-                window.statusData[area].push({
+                if (!statusData[area]) statusData[area] = [];
+                statusData[area].push({
                     name: member.name,
                     id: member.id,
                     callNumber: member.callNumber,
                     status: member.status
                 });
             });
+
+            // FIX: Load PaidMembers (This was missing)
+            console.log('Loading PaidMembers...');
+            const paidSnapshot = await db.collection('PaidMembers').get();
+            
+            paidSnapshot.forEach(doc => {
+                const member = doc.data();
+                const area = member.cwacArea;
+                if (!paidData[area]) paidData[area] = [];
+                paidData[area].push({
+                    name: member.name,
+                    id: member.id,
+                    callNumber: member.callNumber
+                });
+            });
             
             // Sort all areas
-            Object.keys(window.unpaidData).forEach(area => {
-                window.unpaidData[area].sort((a, b) => a.name.localeCompare(b.name));
+            Object.keys(unpaidData).forEach(area => {
+                unpaidData[area].sort((a, b) => a.name.localeCompare(b.name));
             });
-            Object.keys(window.statusData).forEach(area => {
-                window.statusData[area].sort((a, b) => a.name.localeCompare(b.name));
+            Object.keys(statusData).forEach(area => {
+                statusData[area].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            Object.keys(paidData).forEach(area => {
+                paidData[area].sort((a, b) => a.name.localeCompare(b.name));
             });
             
-            const totalUnpaid = Object.values(window.unpaidData).reduce((sum, arr) => sum + arr.length, 0);
-            const totalStatus = Object.values(window.statusData).reduce((sum, arr) => sum + arr.length, 0);
+            const totalUnpaid = Object.values(unpaidData).reduce((sum, arr) => sum + arr.length, 0);
+            const totalStatus = Object.values(statusData).reduce((sum, arr) => sum + arr.length, 0);
+            const totalPaid = Object.values(paidData).reduce((sum, arr) => sum + arr.length, 0);
             
-            console.log('✅ Data loaded from cloud:', { unpaid: totalUnpaid, status: totalStatus });
-            showToast(`Loaded ${totalUnpaid} unpaid, ${totalStatus} status members`, 'success');
+            console.log('✅ Data loaded from cloud:', { unpaid: totalUnpaid, status: totalStatus, paid: totalPaid });
+            showToast(`Loaded ${totalUnpaid} unpaid, ${totalPaid} paid, ${totalStatus} status members`, 'success');
             
             // Update UI
             if (typeof populateCwacLists === 'function') populateCwacLists();
