@@ -1439,73 +1439,97 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // New safe initialization function
-    function initializeAfterNavigation(retryCount = 0) {
-        // Don't retry forever
-        if (retryCount > 10) {
-            console.error('Failed to initialize after 10 retries');
-            return;
+    // REPLACE your existing initializeAfterNavigation function with this improved version:
+
+function initializeAfterNavigation(retryCount = 0) {
+    // Don't retry forever
+    if (retryCount > 10) {
+        console.error('Failed to initialize after 10 retries');
+        return;
+    }
+    
+    // Check if all required elements exist
+    const roleIndicator = document.getElementById('roleIndicator');
+    const syncDiv = document.getElementById('syncDiv');
+    
+    // If elements aren't ready yet, retry after a short delay
+    if (!roleIndicator || !syncDiv) {
+        console.log(`Waiting for UI elements... (attempt ${retryCount + 1})`);
+        setTimeout(() => initializeAfterNavigation(retryCount + 1), 100);
+        return;
+    }
+    
+    // Now everything should be ready
+    console.log('UI elements ready, initializing...');
+    
+    // Apply role-based UI
+    if (typeof applyRoleBasedUI === 'function') {
+        applyRoleBasedUI();
+    }
+    
+    // Show stats
+    if (typeof showDataStats === 'function') {
+        showDataStats();
+    }
+    
+    // Add search
+    if (typeof addSearchToLists === 'function') {
+        addSearchToLists();
+    }
+    
+    // CRITICAL FIX: Always populate the lists with whatever data we have
+    if (typeof populateCwacLists === 'function') {
+        console.log('🔄 Populating CWAC lists with current data');
+        populateCwacLists();
+    }
+    
+    // Load data based on role
+    if (userRole === 'admin') {
+        console.log('Admin mode - loading all data');
+        if (typeof loadDataFromCloud === 'function') {
+            loadDataFromCloud().then(() => {
+                // Make sure UI updates after cloud load
+                console.log('📊 Cloud data loaded, refreshing UI');
+                if (typeof populateCwacLists === 'function') {
+                    populateCwacLists();
+                }
+                if (typeof showDataStats === 'function') {
+                    showDataStats();
+                }
+            }).catch(() => {
+                loadDataFromLocal();
+                if (typeof populateCwacLists === 'function') populateCwacLists();
+                if (typeof showDataStats === 'function') showDataStats();
+            });
         }
+    } else {
+        console.log('Viewer mode - loading only unpaid/status');
+        // Check if we already have data
+        const hasUnpaidData = unpaidData && Object.keys(unpaidData).length > 0;
         
-        // Check if all required elements exist
-        const roleIndicator = document.getElementById('roleIndicator');
-        const syncDiv = document.getElementById('syncDiv');
-        
-        // If elements aren't ready yet, retry after a short delay
-        if (!roleIndicator || !syncDiv) {
-            console.log(`Waiting for UI elements... (attempt ${retryCount + 1})`);
-            setTimeout(() => initializeAfterNavigation(retryCount + 1), 100);
-            return;
-        }
-        
-        // Now everything should be ready
-        console.log('UI elements ready, initializing...');
-        
-        // Apply role-based UI
-        if (typeof applyRoleBasedUI === 'function') {
-            applyRoleBasedUI();
-        }
-        
-        // Show stats
-        if (typeof showDataStats === 'function') {
-            showDataStats();
-        }
-        
-        // Add search
-        if (typeof addSearchToLists === 'function') {
-            addSearchToLists();
-        }
-        
-        // Load data based on role
-        if (userRole === 'admin') {
-            console.log('Admin mode - loading all data');
+        if (!hasUnpaidData) {
             if (typeof loadDataFromCloud === 'function') {
-                loadDataFromCloud().catch(() => {
+                loadDataFromCloud().then(() => {
+                    if (typeof populateCwacLists === 'function') {
+                        populateCwacLists();
+                    }
+                }).catch(() => {
                     loadDataFromLocal();
                     if (typeof populateCwacLists === 'function') populateCwacLists();
                     if (typeof showDataStats === 'function') showDataStats();
                 });
             }
         } else {
-            console.log('Viewer mode - loading only unpaid/status');
-            // Check if we already have data
-            const hasUnpaidData = unpaidData && Object.keys(unpaidData).length > 0;
-            
-            if (!hasUnpaidData) {
-                if (typeof loadDataFromCloud === 'function') {
-                    loadDataFromCloud().catch(() => {
-                        loadDataFromLocal();
-                        if (typeof populateCwacLists === 'function') populateCwacLists();
-                        if (typeof showDataStats === 'function') showDataStats();
-                    });
-                }
-            } else {
-                // Data already loaded, just refresh
-                if (typeof populateCwacLists === 'function') populateCwacLists();
-                if (typeof showDataStats === 'function') showDataStats();
-                console.log('Viewer data already present');
+            // Data already loaded, just refresh
+            if (typeof populateCwacLists === 'function') {
+                console.log('📊 Data already present, populating lists');
+                populateCwacLists();
             }
+            if (typeof showDataStats === 'function') showDataStats();
+            console.log('Viewer data already present');
         }
     }
+}
 
     // Also add a mutation observer as a backup (watches for DOM changes)
     const observer = new MutationObserver(function(mutations) {
