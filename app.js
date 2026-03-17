@@ -1396,9 +1396,7 @@ if (!appInitialized) {
     console.log('App initialization complete with Registration System');
 }
         
-        console.log('App initialization complete with Registration System');
-    }
-    
+           
     // Add admin button to view registrations
     function addAdminRegistrationButton() {
         if (userRole !== 'admin') return;
